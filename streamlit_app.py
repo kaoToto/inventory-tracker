@@ -36,12 +36,10 @@ def initialize_data(conn):
 
     cursor.execute(
         """
-      
-       
         CREATE TABLE IF NOT EXISTS players (
             player_id INTEGER PRIMARY KEY,
             player_name TEXT,
-            clan ENUM ( 'BRA', 'RES','SH', 'GUEST_STAR', 'GUEST')
+            clan TEXT
         )
         """
     )
@@ -49,16 +47,16 @@ def initialize_data(conn):
     cursor.execute(
         """
         INSERT INTO players
-            (player_name, player_id , clan)
+            (player_id , player_name,  clan)
         VALUES
             -- RES
-            ('Toto', 3053783 , 'RES'),
-           
+            (3053783 , 'Toto',  'RES'),
+    
             -- SH
-            ('Sandokan', 13567860 , 'SH'),
+            (13567860 , 'Sandokan',  'SH'),
 
             -- BRA
-            ('Ceara', 7458701 , 'SH')
+            (7458701 ,'Ceara',  'SH')
 
         """
     )
@@ -78,8 +76,8 @@ def load_data(conn):
     df = pd.DataFrame(
         data,
         columns=[
-            "player_name",
             "player_id",
+            "player_name",
             "clan",
         ],
     )
@@ -163,7 +161,6 @@ df = load_data(conn)
 # Display data with editable table
 edited_df = st.data_editor(
     df,
-    disabled=["id"],  # Don't allow editing the 'id' column.
     num_rows="dynamic",  # Allow appending/deleting rows.
     column_config={
         # Show dollar sign before price columns.
@@ -185,71 +182,3 @@ st.button(
 )
 
 
-# -----------------------------------------------------------------------------
-# Now some cool charts
-
-# Add some space
-""
-""
-""
-
-st.subheader("Units left", divider="red")
-
-need_to_reorder = df[df["units_left"] < df["reorder_point"]].loc[:, "item_name"]
-
-if len(need_to_reorder) > 0:
-    items = "\n".join(f"* {name}" for name in need_to_reorder)
-
-    st.error(f"We're running dangerously low on the items below:\n {items}")
-
-""
-""
-
-st.altair_chart(
-    # Layer 1: Bar chart.
-    alt.Chart(df)
-    .mark_bar(
-        orient="horizontal",
-    )
-    .encode(
-        x="units_left",
-        y="item_name",
-    )
-    # Layer 2: Chart showing the reorder point.
-    + alt.Chart(df)
-    .mark_point(
-        shape="diamond",
-        filled=True,
-        size=50,
-        color="salmon",
-        opacity=1,
-    )
-    .encode(
-        x="reorder_point",
-        y="item_name",
-    ),
-    use_container_width=True,
-)
-
-st.caption("NOTE: The :diamonds: location shows the reorder point.")
-
-""
-""
-""
-
-# -----------------------------------------------------------------------------
-
-st.subheader("Best sellers", divider="orange")
-
-""
-""
-
-st.altair_chart(
-    alt.Chart(df)
-    .mark_bar(orient="horizontal")
-    .encode(
-        x="units_sold",
-        y=alt.Y("item_name").sort("-x"),
-    ),
-    use_container_width=True,
-)
