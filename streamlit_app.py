@@ -13,6 +13,7 @@ st.set_page_config(
     page_icon=":shopping_bags:",  # This is an emoji shortcode. Could be a URL too.
 )
 
+links =  []
 
 # -----------------------------------------------------------------------------
 # Declare some useful functions.
