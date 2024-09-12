@@ -138,7 +138,8 @@ def update_data(conn, df, changes):
 # :shopping_bags: NWO transfers
 
 **Welcome to NWO transfer**
-This page reads and writes directly from/to our clan database.
+
+This page reads and writes directly from and to our clan database.
 """
 
 st.info(
