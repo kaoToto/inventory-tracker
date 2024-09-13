@@ -261,8 +261,8 @@ This page reads and writes directly from and to our clan database.
 
 st.info(
     """
-    Use the table below to add, remove, and edit items.
-    And don't forget to commit your changes when you're done.
+    Use the table below to add, remove, and edit players team of origin.
+    And don't forget to press commit to save your changes once you're done.
     """
 )
 
@@ -299,7 +299,17 @@ st.button(
     on_click=update_data,
     args=(conn, df, st.session_state.player_table),
 )
+st.info(
+    """
+    Use the button below to pull last available reset ranks.
+    New players will be added to the above table, 
+    Players that are not in NWO will be tagged as originating from SH, RES or BRA depending 
+    on wich team they are now.
 
+    Players will be ranked, the top will get in NWO, the other will be ranked in their clan of origin 
+    and a move table will be created and a move list as requested by will be shown at the bottom
+    """
+)
 def get_clan_string(clan_id):
     return f'{{"uid":"{clan_id}"}}'
 
@@ -400,7 +410,7 @@ if "players_df" in st.session_state:
             "player_name",
             "origin",
             "current team",
-            "destname", "rank"]
+            "dest team", "rank"]
             )
     for index, nwo_clan_id in enumerate(clan_ids["NWO"]):
         for _, row in st.session_state.players_df.iloc[50*index:50+50*index].iterrows():
