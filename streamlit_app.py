@@ -708,12 +708,7 @@ if "movesdf" in st.session_state.keys() :
             st.dataframe(ldf)
     
 
-    st.subheader("Moves formated")
-    st.info(
-    """
-    Use the following text to send to the devs
-    """
-    )   
+   
 
     move_list="""
 a) Rom Ⓡᵉˢ, id 2770772, NWO GENERAL
@@ -731,9 +726,17 @@ c)"""
         if not pd.isna(row["destination"] )  and  row["destination"]  !=  row["from"]:
             count += 1
             move_list = f"{move_list}\n{row["player_id"]} - {row["from"]:.0f} - {row["destination"]:.0f}"
+    
+    st.write(f"{count} Movements ")
+
+    st.subheader("Moves formated")
+    st.info(
+    """
+    Use the following text to send to the devs
+    """
+    )   
     st.code(move_list)
 
-    st.write(f"{count} Movements ")
 
 
 
