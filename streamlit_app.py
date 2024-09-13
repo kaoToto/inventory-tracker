@@ -414,21 +414,21 @@ if "players_df" in st.session_state:
             )
     for index, nwo_clan_id in enumerate(clan_ids["NWO"]):
         for _, row in st.session_state.players_df.iloc[50*index:50+50*index].iterrows():
-            if row["Current Clan"] != nwo_clan_id:
-                #st.session_state.movesdf =  f"{st.session_state.moves}\n{row["ID"]} - {row["Current Clan"]} - {nwo_clan_id}"
-                
-                # New row to add
-                new_row = {"player_id" : row["ID"],
-                    "from": row["Current Clan"],
-                    "destination": nwo_clan_id,
-                    "player_name": row["Name"],
-                    "current team":row["Current Clan Name"],
-                    "origin":row["origin"],
-                    "dest team" : clan_names[nwo_clan_id] if nwo_clan_id in  clan_names else nwo_clan_id,
-                    "rank" : row["Ranking"]
-                    }
-                # Add the new row using loc
-                st.session_state.movesdf.loc[len(st.session_state.movesdf )] = new_row
+            #if row["Current Clan"] != nwo_clan_id:
+            #st.session_state.movesdf =  f"{st.session_state.moves}\n{row["ID"]} - {row["Current Clan"]} - {nwo_clan_id}"
+            
+            # New row to add
+            new_row = {"player_id" : row["ID"],
+                "from": row["Current Clan"],
+                "destination": nwo_clan_id,
+                "player_name": row["Name"],
+                "current team":row["Current Clan Name"],
+                "origin":row["origin"],
+                "dest team" : clan_names[nwo_clan_id] if nwo_clan_id in  clan_names else nwo_clan_id,
+                "rank" : row["Ranking"]
+            }
+            # Add the new row using loc
+            st.session_state.movesdf.loc[len(st.session_state.movesdf )] = new_row
 
     remaining_players_df =  st.session_state.players_df.iloc[50*nwo_clan_count:]
     clans_to_sort = list(clan_ids.keys())
@@ -440,29 +440,60 @@ if "players_df" in st.session_state:
         remaining_players_clan = remaining_players_df[remaining_players_df['origin'] == clan_to_sort]
         for index, target_clan_id in enumerate(clan_ids[clan_to_sort]):
             for _, row in remaining_players_clan[50*index:50+50*index].iterrows():
-                if row["Current Clan"] != target_clan_id:
-                    # New row to add
-                    new_row = {"player_id" : row["ID"],
-                        "from": row["Current Clan"],
-                        "destination": target_clan_id,
-                        "player_name": row["Name"],
-                        "current team":clan_names[row["Current Clan"]] if row["Current Clan"] in  clan_names else "",
-                        "origin":row["origin"],
-                        "dest team" : clan_names[target_clan_id] if target_clan_id in  clan_names else clan_to_sort,
-                        "rank" : row["Ranking"]
-                        }
-                    # Add the new row using loc
-                    st.session_state.movesdf.loc[len(st.session_state.movesdf )] = new_row
+                #if row["Current Clan"] != target_clan_id:
+                # New row to add
+                new_row = {"player_id" : row["ID"],
+                    "from": row["Current Clan"],
+                    "destination": target_clan_id,
+                    "player_name": row["Name"],
+                    "current team":clan_names[row["Current Clan"]] if row["Current Clan"] in  clan_names else "",
+                    "origin":row["origin"],
+                    "dest team" : clan_names[target_clan_id] if target_clan_id in  clan_names else clan_to_sort,
+                    "rank" : row["Ranking"]
+                    }
+                # Add the new row using loc
+                st.session_state.movesdf.loc[len(st.session_state.movesdf )] = new_row
+
+def check_dest_team(row):
+    key = None
+    for k, v in clan_names.items():
+        if v == row["dest team"]:
+            key = k
+            break 
+    if key is None :
+        st.toast(f"Unknown team {row["dest team"]}", icon="🚨")
+    #print(key, row["dest team"])
+    return key
 
 
 
 if "movesdf" in st.session_state.keys() :
     ## Moves
     st.subheader("Moves")
-    st.session_state.movesdf = st.data_editor(
+    edited_movesdf = st.data_editor(
         st.session_state.movesdf,
-        num_rows="dynamic")
+        num_rows="dynamic",
+        disabled=("player_id",
+            "player_name",
+            "origin",
+            "current team","rank"),
+        column_order = ("player_id",
+            "player_name",
+            "origin", 
+            "current team","dest team" ,"rank")
+
+        ) 
+    if edited_movesdf is not None  and not edited_movesdf.equals(st.session_state.movesdf):
+        edited_movesdf['destination']=edited_movesdf.apply(check_dest_team,axis=1)
+        edited_movesdf['dest team']=edited_movesdf['dest team']
+        st.session_state.movesdf = edited_movesdf
     
+    st.subheader("Player per team")
+
+    value_counts = edited_movesdf["dest team"].value_counts()
+    st.dataframe(value_counts)
+
+
     st.subheader("Moves formated")
 
     clan_names_string = "Clans of the NWO, RES, SH and BRA familly :"
@@ -474,9 +505,10 @@ if "movesdf" in st.session_state.keys() :
     st.write(f"Changes:")
     st.write(f"player - from - to")
     move_list =""
-    sorted_move_list =st.session_state.movesdf.sort_value(by="from")
+    sorted_move_list = edited_movesdf.sort_values(by="from")
     for _, row in sorted_move_list.iterrows():
-        move_list = f"{move_list}\n{row["player_id"]} - {row["from"]} - {row["destination"]}"
+        if not pd.isna(row["destination"] )  and  row["destination"]  !=  row["from"]:
+            move_list = f"{move_list}\n{row["player_id"]} - {row["from"]:.0f} - {row["destination"]:.0f}"
     st.code(move_list)
 
 
