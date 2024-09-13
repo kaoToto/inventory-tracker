@@ -9,6 +9,9 @@ import base64, json
 import requests
 from io import StringIO
 import numpy as np
+import re
+import unicodedata
+
 
 # Set the title and favicon that appear in the Browser's tab bar.
 st.set_page_config(
@@ -60,8 +63,24 @@ clan_names[ 5425] = "SH1"
 clan_names[ 143430] = "SH2"
 clan_names[ 133909] = "SH3"
     
-
+possible_clans = list(clan_ids.keys())
+possible_clans  = possible_clans[1:] # all teams but NWO
  
+# Function to normalize and replace fancy letters
+def replace_fancy_letters(text, remove_numbers=False):
+    # Normalize to NFKD form (compatibility decomposition)
+    normalized_text = unicodedata.normalize('NFKD', text)
+    # Filter out non-ASCII characters
+    ascii_text = ''.join([char for char in normalized_text if char.isascii()])
+
+    #remove whitespaces
+    ascii_text = re.sub(r'\s+', '', text)
+    if remove_numbers:
+        #remove numbers
+        ascii_text = re.sub(r'\d+', '', ascii_text )
+
+    # Convert to uppercase
+    return ascii_text.upper()
 
 if False:
     # decode 
@@ -155,7 +174,7 @@ def add_new_player(id, name):
 
     conn.commit()
 
-def add_or_update_player(id, name,clan):
+def add_or_update_player(conn, id, name,clan):
 
   
     cursor = conn.cursor()
@@ -205,6 +224,9 @@ def load_data(conn):
 
 def update_data(conn, df, changes):
     """Updates the players data in the database."""
+
+   
+
     cursor = conn.cursor()
 
     if changes["edited_rows"]:
@@ -214,7 +236,14 @@ def update_data(conn, df, changes):
         for i, delta in deltas.items():
             row_dict = df.iloc[i].to_dict()
             row_dict.update(delta)
-            rows.append(row_dict)
+            #make it latin letters uppercase
+            row_dict["clan"] = replace_fancy_letters(row_dict["clan"], remove_numbers=True)
+
+            if row_dict["clan"]  is None or row_dict["clan"] in possible_clans :
+                rows.append(row_dict)
+            else :
+                st.toast(f"Invalid clan of origin `{row_dict['clan']}` for player {row_dict['player_name']}. Value must be in {str(possible_clans)}")
+
 
         cursor.executemany(
             """
@@ -254,15 +283,18 @@ def update_data(conn, df, changes):
 """
 # :recycle: NWO transfers
 
-**Welcome to NWO transfer**
+**Welcome to NWO transfers site**
 
-This page reads and writes directly from and to our clan database.
+This page saves clan of origin for each player in our clan database.
+This page then proposes you to doanload last available reset rank and calculate all clan moves. 
+Top players will be in NWO and other players will be sorted in their own clan of origin.
 """
 
 st.info(
     """
-    Use the following table to set a team (RES, BRA, SH) of origin of a NWO, player
-    So he is sent back there if he is demoted
+    Use the following table to set a team (RES, BRA, SH) of origin for all NWO players.
+    When the player no longer qualifies for NWO, he will be sent to his clan of origin.
+    If no clan of origin is set, one will be granted randomly.
     """
 )
 
@@ -338,7 +370,7 @@ def assign_users(df):
         id = row['ID']
         name = row['Name']
         team = row['Team']
-        add_or_update_player(id,name,team)
+        add_or_update_player(conn, id,name,team)
 
 def create_new_users(df):
     for _, row in df.iterrows():
@@ -349,8 +381,6 @@ def create_new_users(df):
 
 # Function to fill missing values with a random choice from possible_values
 def fill_missing_values(row):
-    possible_values = list(clan_ids.keys())
-    possible_values = possible_values[1:]
 
     matching_row = df[df['player_id'] - row['ID'] == 0]
     clan = matching_row['clan'].values[0] if not matching_row.empty else None
@@ -359,7 +389,7 @@ def fill_missing_values(row):
     else :
         print(f"not found {row['ID']}  {row['Current Clan Name']} ")
         #print(matching_row)
-    return np.random.choice(possible_values)
+    return np.random.choice(possible_clans)
     
 
 if st.button("Reload players ranks from NWO"):
@@ -425,9 +455,8 @@ if "players_df" in st.session_state:
             st.session_state.movesdf.loc[len(st.session_state.movesdf )] = new_row
 
     remaining_players_df =  st.session_state.players_df.iloc[50*nwo_clan_count:]
-    clans_to_sort = list(clan_ids.keys())
-    clans_to_sort = clans_to_sort[1:]
-
+    
+    clans_to_sort = possible_clans
     for clan_to_sort in clans_to_sort: 
         print(f"clan to sort: {clan_to_sort}")
         print()
@@ -449,13 +478,14 @@ if "players_df" in st.session_state:
                 st.session_state.movesdf.loc[len(st.session_state.movesdf )] = new_row
 
 def check_dest_team(row):
+    new_dest_team = replace_fancy_letters(row["dest team"])
     key = None
     for k, v in clan_names.items():
-        if v == row["dest team"]:
+        if v == new_dest_team:
             key = k
             break 
     if key is None :
-        st.toast(f"Unknown team {row["dest team"]}", icon="🚨")
+        st.toast(f"Unknown team {new_dest_team}", icon="🚨")
     #print(key, row["dest team"])
     return key
 
@@ -464,6 +494,11 @@ def check_dest_team(row):
 if "movesdf" in st.session_state.keys() :
     ## Moves
     st.subheader("Moves")
+    st.info("""
+    Use this table to check moves and edit dest team.
+    The table below will be recalculated after each edit, 
+    make sure that clans are full but not over 50 
+    """)
     edited_movesdf = st.data_editor(
         st.session_state.movesdf,
         num_rows="dynamic",
