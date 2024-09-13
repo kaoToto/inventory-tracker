@@ -474,7 +474,7 @@ if "movesdf" in st.session_state.keys() :
     st.write(f"Changes:")
     st.write(f"player - from - to")
     move_list =""
-    sorted_move_list =st.session_state.movesdf.sort_value(by="from"))
+    sorted_move_list =st.session_state.movesdf.sort_value(by="from")
     for _, row in sorted_move_list.iterrows():
         move_list = f"{move_list}\n{row["player_id"]} - {row["from"]} - {row["destination"]}"
     st.code(move_list)
