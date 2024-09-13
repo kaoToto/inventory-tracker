@@ -261,8 +261,8 @@ This page reads and writes directly from and to our clan database.
 
 st.info(
     """
-    Use the table below to add, remove, and edit players team of origin.
-    And don't forget to press commit to save your changes once you're done.
+    Use the following table to set a team (RES, BRA, SH) of origin of a NWO, player
+    So he is sent back there if he is demoted
     """
 )
 
@@ -301,13 +301,7 @@ st.button(
 )
 st.info(
     """
-    Use the button below to pull last available reset ranks.
-    New players will be added to the above table, 
-    Players that are not in NWO will be tagged as originating from SH, RES or BRA depending 
-    on wich team they are now.
-
-    Players will be ranked, the top will get in NWO, the other will be ranked in their clan of origin 
-    and a move table will be created and a move list as requested by will be shown at the bottom
+    Use the following button to pull last available reset ranks from AOW and edit movements
     """
 )
 def get_clan_string(clan_id):
@@ -368,7 +362,7 @@ def fill_missing_values(row):
     return np.random.choice(possible_values)
     
 
-if st.button("Reload player list from BRA RES SH NWO "):
+if st.button("Reload players ranks from NWO"):
     df_sh = pull_all_links("SH")
     assign_users(df_sh)
     df_res = pull_all_links("RES")
@@ -488,23 +482,45 @@ if "movesdf" in st.session_state.keys() :
         edited_movesdf['dest team']=edited_movesdf['dest team']
         st.session_state.movesdf = edited_movesdf
     
-    st.subheader("Player per team")
+    st.subheader("Players per team")
+    st.info("""
+    Count of players in each of our teams if we do the transfers        
+    """)
 
-    value_counts = edited_movesdf["dest team"].value_counts()
-    st.dataframe(value_counts)
+    
+    col1,col2,col3,col4= st.columns([1,1,1,1])
+    with col1:
+        ldf = edited_movesdf[edited_movesdf['dest team'] == "NWO"]["dest team"].value_counts()
+        st.dataframe(ldf)
+
+    with col2:
+        ldf = edited_movesdf[edited_movesdf['dest team'].str.contains('BRA', case=False, na=False)]["dest team"].value_counts()
+        st.dataframe(ldf)
+    with col3:
+        ldf = edited_movesdf[edited_movesdf['dest team'].str.contains('RES', case=False, na=False)]["dest team"].value_counts()
+        st.dataframe(ldf)
+    with col4:
+        ldf = edited_movesdf[edited_movesdf['dest team'].str.contains('SH', case=False, na=False)]["dest team"].value_counts()
+        st.dataframe(ldf)
 
 
     st.subheader("Moves formated")
+    st.info(
+    """
+    Use the following text to send to the devs
+    """
+    )   
 
-    clan_names_string = "Clans of the NWO, RES, SH and BRA familly :"
+    move_list="""
+a) Rom Ⓡᵉˢ, id 2770772, NWO GENERAL
+b)"""
+
     for key, value in clan_names.items():
-            clan_names_string = f"{clan_names_string} {key}: {value},"
-    st.write(clan_names_string.rstrip(","))
+            move_list = f"{move_list} {value},"
+    move_list=move_list.rstrip(",")
 
-    st.write(f" ")
-    st.write(f"Changes:")
-    st.write(f"player - from - to")
-    move_list =""
+    move_list =f"""{move_list}
+c)"""
     sorted_move_list = edited_movesdf.sort_values(by="from")
     for _, row in sorted_move_list.iterrows():
         if not pd.isna(row["destination"] )  and  row["destination"]  !=  row["from"]:
