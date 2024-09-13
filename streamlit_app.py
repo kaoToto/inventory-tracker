@@ -455,8 +455,10 @@ if "movesdf" in st.session_state.keys() :
     
     st.subheader("Moves formated")
 
-    st.write("Clans NWO, RES, SH BRA familly")
-    
+    st.write("Clans of the NWO, RES, SH and BRA familly :")
+    for key, value in clan_names:
+        st.write(f"{key}: {value}")
+
     for _, row in st.session_state.movesdf.sort_values(by="origin").iterrows():
         st.write(f"{row["player_id"]} - {row["origin"]} - {row["destination"]}")
 
