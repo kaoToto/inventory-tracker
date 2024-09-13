@@ -18,53 +18,48 @@ st.set_page_config(
     page_title="NWO transfers",
     page_icon=":recycle:",  # This is an emoji shortcode. Could be a URL too.
 )
-link_temmplate = "https://www.armyneedyou.com/team/user_export?type=current&dateType=lastday&token=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9."
-clan_ids =  { 
-    "NWO"	: [  835 ],
-    "RES" :	[ 
-            47257, 
-            10283 , 
-            115,
-            4023,
-            120420,
-            3037
-            ],
-    "BRA" : [ 
-        140409,
-        8961,
-        96873,
-        103475,
-        111,
-        434,
-        4200
-    ],
-    "SH" : [ 
-        5425,
-        143430,
-        133909
-    ]
-}
+
+
+# Clan list 
+
+link_template = "https://www.armyneedyou.com/team/user_export?type=current&dateType=lastday&token=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9."
+
 clan_names = {}
 clan_names[ 835 ] = "NWO"
 clan_names[ 47257] = "RES1"
 clan_names[ 10283] = "RES2"
 clan_names[ 115] = "RES3"
-clan_names[ 4023] = "RES5"
-clan_names[ 120420] = "RES6"
-clan_names[ 3037] = "RES7"
+#clan_names[ 4023] = "RES5"
+#clan_names[ 120420] = "RES6"
+#clan_names[ 3037] = "RES7"
 clan_names[ 140409] = "BRA1"
 clan_names[ 8961] = "BRA2"
 clan_names[ 96873] = "BRA3"
 clan_names[ 103475] = "BRA4"
 clan_names[ 111] = "BRA5"
-clan_names[ 434] = "BRA6"
-clan_names[ 4200] = "BRA7"
+#clan_names[ 434] = "BRA6"
+#clan_names[ 4200] = "BRA7"
 clan_names[ 5425] = "SH1"
 clan_names[ 143430] = "SH2"
 clan_names[ 133909] = "SH3"
-    
-possible_clans = list(clan_ids.keys())
-possible_clans  = possible_clans[1:] # all teams but NWO
+#clan_names[142364] = "ARB"
+
+# lets populate a reverse table to ease lookups
+clan_ids = {}
+for k, v in clan_names.items():
+    family = re.sub(r'\d+', '',v)
+    # add new families
+    if family not in clan_ids.keys():
+        clan_ids[family]= [ k ]
+    else :
+        clan_ids[family].append(k)
+
+
+print(str(clan_ids))
+
+
+possible_families = list(clan_ids.keys())
+possible_families  = possible_families[1:] # all teams but NWO
  
 # Function to normalize and replace fancy letters
 def replace_fancy_letters(text, remove_numbers=False):
@@ -82,24 +77,12 @@ def replace_fancy_letters(text, remove_numbers=False):
     # Convert to uppercase
     return ascii_text.upper()
 
-if False:
-    # decode 
-    linksEnds = { "BRA" : 
-                ["eyJ1aWQiOiIxNDA0MDkifQ", "eyJ1aWQiOiI4OTYxIn0","eyJ1aWQiOiI5Njg3MyJ9","eyJ1aWQiOiIxMDM0NzUifQ","eyJ1aWQiOiIxMTEifQ","eyJ1aWQiOiI0MzQifQ","eyJ1aWQiOiI0MjAwIn0"
-                    
-                ],
-                "SH": [
-                    "eyJ1aWQiOiI1NDI1In0", "eyJ1aWQiOiIxNDM0MzAifQ", "eyJ1aWQiOiIxMzM5MDkifQ"
-                ]
-                }
-    for team in linksEnds :
-        print(f'"{team}" : [')
-        for linkEnd in linksEnds[team]:
-            print(json.loads(base64_padding(linkEnd).decode("utf8"))["uid"])
-            print(',')
-        print(f']')
+
+# -----------------------------------------------------------------------------
+# Base 64 decode
 
 def base64_padding(source_str): 
+    """ Base 64 has = or == endings in standard and our strings don't have them, hence we need a conversion"""
     pad = {0: "", 2: "==", 3: "="}
 
     mod4 = (len(source_str)) % 4
@@ -109,9 +92,15 @@ def base64_padding(source_str):
     padded_str = base64.b64decode(b64u)
     return padded_str
 
+if False:
+    # example to b64decode a link clan part 
+    linksEnd = "eyJ1aWQiOiIxNDA0MDkifQ", 
+    print(json.loads(base64_padding(linkEnd).decode("utf8"))["uid"])
+
+
 
 # -----------------------------------------------------------------------------
-# Declare some useful functions.
+# Declare some useful db functions.
 
 
 def connect_db():
@@ -127,7 +116,7 @@ def connect_db():
 
 
 def initialize_data(conn):
-    """Initializes the players table with some data."""
+    """Initializes the players table with no data."""
     cursor = conn.cursor()
 
     cursor.execute(
@@ -139,30 +128,40 @@ def initialize_data(conn):
         )
         """
     )
+    conn.commit()
 
+def add_generals(conn):
+    """ migration """
+    """Initializes the generals table with some data."""
+    empty_general_list = ""
+    for k, _ in clan_names.items():
+        empty_general_list = f""" {empty_general_list}
+        ({k},0),"""
+
+
+    cursor = conn.cursor()
     cursor.execute(
         """
-        INSERT INTO players
-            (player_id , player_name,  clan)
-        VALUES
-            -- RES
-            (3053783 , 'Toto',  'RES'),
-    
-            -- SH
-            (13567860 , 'Sandokan',  'SH'),
-
-            -- BRA
-            (7458701 ,'Ceara',  'SH')
-
+        CREATE TABLE IF NOT EXISTS generals (
+            clan_id INTEGER PRIMARY KEY,
+            player_id INTEGER
+        )
         """
     )
+
+    query = f"""
+        INSERT OR IGNORE INTO 'generals'
+            (clan_id , player_id)
+        VALUES
+            {empty_general_list.strip(",")};
+        """
+    st.write(query)
+
+    cursor.execute( query )
     conn.commit()
 
 def add_new_player(id, name):
-
-   
     cursor = conn.cursor()
-
     cursor.execute(
         f"""
         INSERT OR IGNORE INTO players
@@ -171,14 +170,22 @@ def add_new_player(id, name):
             ({id}, '{name}','')
         """
     )
+    conn.commit()
 
+def add_new_general(clan_id, player_id):
+    cursor = conn.cursor()
+    cursor.execute(
+        f"""
+        INSERT OR IGNORE INTO generals
+            (clan_id , player_id)
+        VALUES
+            ({clan_id}, {player_id})
+        """
+    )
     conn.commit()
 
 def add_or_update_player(conn, id, name,clan):
-
-  
     cursor = conn.cursor()
-
     cursor.execute(
         f"""
         INSERT OR IGNORE INTO players
@@ -199,11 +206,33 @@ def add_or_update_player(conn, id, name,clan):
     )
     conn.commit()
 
+def add_or_update_general(clan_id, player_id):
+    cursor = conn.cursor()
+    cursor.execute(
+        f"""
+        INSERT OR IGNORE INTO generals
+            (clan_id , player_id)
+        VALUES
+            ({clan_id}, {player_id})
+        """
+    )
 
-def load_data(conn):
+    cursor.execute(  
+        f"""
+        UPDATE generals 
+        SET
+            player_id = {player_id}
+        WHERE 
+            clan_id = {clan_id} 
+        """
+    )
+    conn.commit()
+
+
+
+def load_players_data(conn):
     """Loads the players data from the database."""
     cursor = conn.cursor()
-
     try:
         cursor.execute("SELECT * FROM players")
         data = cursor.fetchall()
@@ -218,15 +247,45 @@ def load_data(conn):
             "clan",
         ],
     )
+    return df
 
+def clan_name_for_id (row):
+    if 'clan_id' in row and row['clan_id'] in clan_names.keys():
+        return clan_names[row['clan_id']]
+    return ''
+
+def player_name_for_id (row, playerdf):
+    if 'player_id' in row and playerdf[playerdf['player_id'] == row['player_id']]:
+        line = playerdf[playerdf['player_id'] == row['player_id']]
+        return line["Name"].values[0]          
+    return ''
+
+def load_generals_data(conn):
+    """Loads the generals data from the database."""
+    cursor = conn.cursor()
+    try:
+        cursor.execute("SELECT * FROM generals")
+        data = cursor.fetchall()
+    except Exception as e:
+        print(e)
+        return None
+
+    df = pd.DataFrame(
+        data,
+        columns=[
+            "clan_id",
+            "player_id"
+        ],
+    )
+    df['clan_name'] =  df.apply(clan_name_for_id ,axis =1)
+
+    #drop rows that do not correspond to a listed clan (no name)
+    df = df[df['clan_name'] != '']
     return df
 
 
-def update_data(conn, df, changes):
+def update_players_data(conn, df, changes):
     """Updates the players data in the database."""
-
-   
-
     cursor = conn.cursor()
 
     if changes["edited_rows"]:
@@ -239,10 +298,10 @@ def update_data(conn, df, changes):
             #make it latin letters uppercase
             row_dict["clan"] = replace_fancy_letters(row_dict["clan"], remove_numbers=True)
 
-            if row_dict["clan"]  is None or row_dict["clan"] in possible_clans :
+            if row_dict["clan"]  is None or row_dict["clan"] in possible_families :
                 rows.append(row_dict)
             else :
-                st.toast(f"Invalid clan of origin `{row_dict['clan']}` for player {row_dict['player_name']}. Value must be in {str(possible_clans)}")
+                st.toast(f"Invalid clan of origin `{row_dict['clan']}` for player {row_dict['player_name']}. Value must be in {str(possible_families)}")
 
 
         cursor.executemany(
@@ -306,12 +365,18 @@ if db_was_just_created:
     initialize_data(conn)
     st.toast("Database initialized with some sample data.")
 
+add_generals(conn)
+
 # Load data from database
-df = load_data(conn)
-df = df.sort_values(by='clan', ascending=True)
+players_df = load_players_data(conn)
+players_df = players_df.sort_values(by='clan', ascending=True)
+
+generals_df = load_generals_data(conn)
+
+
 # Display data with editable table
 edited_df = st.data_editor(
-    df,
+    players_df,
     num_rows="dynamic",  # Allow appending/deleting rows.
     column_config={
         # Show dollar sign before price columns.
@@ -328,9 +393,62 @@ st.button(
     type="primary",
     disabled=not has_uncommitted_changes,
     # Update data in database
-    on_click=update_data,
-    args=(conn, df, st.session_state.player_table),
+    on_click=update_players_data,
+    args=(conn, players_df, st.session_state.player_table),
 )
+
+st.subheader("Generals")
+
+
+
+col1,col2 = st.columns([1,1])
+generals_df['priority'] = generals_df['clan_name'].apply(lambda x: f"0{x}" if x.startswith('NW') else f"1{x}" )
+
+generals_df =  generals_df.sort_values(by='priority')
+generals_df.drop(columns=['priority'])
+generals_df.reset_index(inplace=True)
+
+generals_df['player_name']= generals_df['player_id'].apply( lambda player_id :  '' if player_id == 0 else players_df[ players_df['player_id'] == player_id]['player_name'].values[0] )
+
+# Display data withnot editable
+with col1: 
+    st.dataframe(
+        generals_df,
+        column_order = ("clan_name",   "player_id",  "player_name"),   
+    )
+                
+with col2: 
+    with st.container(border=True):
+        st.write("Change a General")
+        generals_have_uncommitted_changes = False
+        last_gen_clan = None
+        last_gen_name = None
+
+        new_general_clan = st.selectbox("Clan",options = clan_names.values(), index = None)
+        new_general_name = st.selectbox("General",options =players_df['player_name'], index = None)
+
+        if st.button(":warning: Save Changes",
+                     disabled = not new_general_clan  or not new_general_name
+            , key="generalbutt"):
+            new_general_id = players_df[ players_df['player_name'] == new_general_name ]['player_id'].values[0]
+            new_general_clan_id = None
+            for k,v in clan_names.items():
+                if v == new_general_clan :
+                    new_general_clan_id = k
+                    break
+            last_gen_clan = new_general_clan
+            last_gen_name = new_general_name      
+            add_or_update_general(clan_id=new_general_clan_id, player_id=new_general_id)
+
+            st.rerun()
+        
+
+                    
+
+
+
+
+
 st.info(
     """
     Use the following button to pull last available reset ranks from AOW and edit movements
@@ -342,7 +460,7 @@ def get_clan_string(clan_id):
 def get_last_day_link(clan_id):
     clan_string =get_clan_string(clan_id)
     clan_string_encoded = base64.b64encode(clan_string.encode("utf8")).decode("utf8").rstrip('=')
-    url = f"{link_temmplate}{clan_string_encoded}.NWOTOKEN&battle=pvp"
+    url = f"{link_template}{clan_string_encoded}.NWOTOKEN&battle=pvp"
     print(url)
     return url
 
@@ -382,14 +500,14 @@ def create_new_users(df):
 # Function to fill missing values with a random choice from possible_values
 def fill_missing_values(row):
 
-    matching_row = df[df['player_id'] - row['ID'] == 0]
+    matching_row = players_df[players_df['player_id'] - row['ID'] == 0]
     clan = matching_row['clan'].values[0] if not matching_row.empty else None
     if clan and len(clan) > 0:
         return clan
     else :
         print(f"not found {row['ID']}  {row['Current Clan Name']} ")
         #print(matching_row)
-    return np.random.choice(possible_clans)
+    return np.random.choice(possible_families)
     
 
 if st.button("Reload players ranks from NWO"):
@@ -456,7 +574,7 @@ if "players_df" in st.session_state:
 
     remaining_players_df =  st.session_state.players_df.iloc[50*nwo_clan_count:]
     
-    clans_to_sort = possible_clans
+    clans_to_sort = possible_families
     for clan_to_sort in clans_to_sort: 
         print(f"clan to sort: {clan_to_sort}")
         print()
