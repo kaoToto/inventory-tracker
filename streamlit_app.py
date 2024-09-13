@@ -455,10 +455,12 @@ if "movesdf" in st.session_state.keys() :
     
     st.subheader("Moves formated")
 
-    st.write("Clans of the NWO, RES, SH and BRA familly :")
+    clan_names_string = "Clans of the NWO, RES, SH and BRA familly :"
     for key, value in clan_names.items():
-        st.write(f"{key}: {value}")
+            clan_names_string = f"{clan_names_string}, {key}: {value}"
+    st.write(clan_names_string)
 
+    st.write(f" ")
     st.write(f"Changes:")
     st.write(f"player - from - to")
     for _, row in st.session_state.movesdf.sort_values(by="origin").iterrows():
