@@ -727,7 +727,7 @@ c)"""
             count += 1
             move_list = f"{move_list}\n{row["player_id"]} - {row["from"]:.0f} - {row["destination"]:.0f}"
     
-    st.write(f"{count} Movements ")
+    st.write(f"{count} Movements / {len(st.session_state.players_df)}")
 
     st.subheader("Moves formated")
     st.info(
