@@ -532,7 +532,7 @@ if st.button("Reload players ranks from NWO"):
     st.rerun()
 
 if "players_df" in st.session_state:
-
+    #st.dataframe(st.session_state.players_df)
     ## All players
 
     st.session_state.players_df = st.data_editor(
@@ -543,7 +543,6 @@ if "players_df" in st.session_state:
     ## Moves to NWO
     print(clan_ids["NWO"])
 
-    
     nwo_clan_count = len( clan_ids["NWO"])
     st.session_state.movesdf = pd.DataFrame(columns=[
             "player_id",
@@ -552,10 +551,65 @@ if "players_df" in st.session_state:
             "player_name",
             "origin",
             "current team",
-            "dest team", "rank"]
+            "dest team", 
+            "rank"]
             )
+    
+    # we will sort 49 player per team, on a list with no generals
+    # unfortunately,  if a selected general is not in his clan,
+    # we would not consider and he will be not counted in the clan where he is
+    # which would end at 51
+    # and  counted in the clan he should be, where he is no more
+    # which would end at 49
+
+    # to prevent that, we need to sort 49 player per clan and ignore one player, preferably in the middle of the clan
+
+    # so, we will make a list of 1 player per clan
+    # with all generals that are at home, and a middle ranked player from that clan otherwise 
+
+    # Merge player_df with general_df on player_id
+
+   
+    st.session_state.players_df['player_id'] = st.session_state.players_df['ID']
+    merged_df = generals_df.merge(st.session_state.players_df[['player_id', 'Name', 'Current Clan']], 
+                             on= 'player_id', 
+                             how='left', 
+                             )
+    
+    # Create 'at_home' column where clan_id in general_df matches clan_id in player_df
+    merged_df['at_home'] = merged_df['clan_id'] == merged_df['Current Clan']
+    # Replace NaN values in the 'Name' column with an empty string
+    merged_df['Name'] = merged_df['Name'].fillna('?')
+    merged_df['name_clan'] = merged_df['Name'] + ' (' + merged_df['clan_name'] + ')'
+    wandering_generals = merged_df[  merged_df['at_home']  == False ]
+    st.warning(f"The following listed Generals are not even in their clan {str(wandering_generals['name_clan'].tolist())}")
+    def find_middle_player(clan_id):
+        # Filter player_df by clan_id
+        clan_players = st.session_state.players_df[st.session_state.players_df['Current Clan'] == clan_id]
+        
+        if not clan_players.empty:
+            # Get the middle index
+            middle_index = len(clan_players) // 2
+            # Select the player at the middle index
+            middle_player = clan_players.iloc[middle_index]
+            return middle_player['player_id']
+        else:
+            return None  # No players in this clan
+        
+    def replace_general(general_row):
+        if general_row['at_home']:
+            return general_row['player_id']  # Keep original general if at home
+        else:
+            return find_middle_player(general_row['clan_id'])  # Replace if not at home
+        
+    
+    # Apply the function to find replacements for non-home generals
+    merged_df['new_general'] = merged_df.apply(replace_general, axis=1)
+    st.session_state.players_df['cant_move'] = st.session_state.players_df['ID'].apply( lambda player_id :  player_id in merged_df['new_general'].tolist() )
+    
+    players_excepted_generals_df = st.session_state.players_df[st.session_state.players_df['cant_move']  == False]
     for index, nwo_clan_id in enumerate(clan_ids["NWO"]):
-        for _, row in st.session_state.players_df.iloc[50*index:50+50*index].iterrows():
+        for _, row in players_excepted_generals_df.iloc[49*index:49+49*index].iterrows():
             #if row["Current Clan"] != nwo_clan_id:
             #st.session_state.movesdf =  f"{st.session_state.moves}\n{row["ID"]} - {row["Current Clan"]} - {nwo_clan_id}"
             
@@ -572,7 +626,7 @@ if "players_df" in st.session_state:
             # Add the new row using loc
             st.session_state.movesdf.loc[len(st.session_state.movesdf )] = new_row
 
-    remaining_players_df =  st.session_state.players_df.iloc[50*nwo_clan_count:]
+    remaining_players_df = players_excepted_generals_df.iloc[49*nwo_clan_count:]
     
     clans_to_sort = possible_families
     for clan_to_sort in clans_to_sort: 
@@ -580,7 +634,7 @@ if "players_df" in st.session_state:
         print()
         remaining_players_clan = remaining_players_df[remaining_players_df['origin'] == clan_to_sort]
         for index, target_clan_id in enumerate(clan_ids[clan_to_sort]):
-            for _, row in remaining_players_clan[50*index:50+50*index].iterrows():
+            for _, row in remaining_players_clan[49*index:49+49*index].iterrows():
                 #if row["Current Clan"] != target_clan_id:
                 # New row to add
                 new_row = {"player_id" : row["ID"],
@@ -628,7 +682,6 @@ if "movesdf" in st.session_state.keys() :
             "player_name",
             "origin", 
             "current team","dest team" ,"rank")
-
         ) 
     if edited_movesdf is not None  and not edited_movesdf.equals(st.session_state.movesdf):
         edited_movesdf['destination']=edited_movesdf.apply(check_dest_team,axis=1)
@@ -640,22 +693,15 @@ if "movesdf" in st.session_state.keys() :
     Count of players in each of our teams if we do the transfers        
     """)
 
-    
     col1,col2,col3,col4= st.columns([1,1,1,1])
-    with col1:
-        ldf = edited_movesdf[edited_movesdf['dest team'] == "NWO"]["dest team"].value_counts()
-        st.dataframe(ldf)
-
-    with col2:
-        ldf = edited_movesdf[edited_movesdf['dest team'].str.contains('BRA', case=False, na=False)]["dest team"].value_counts()
-        st.dataframe(ldf)
-    with col3:
-        ldf = edited_movesdf[edited_movesdf['dest team'].str.contains('RES', case=False, na=False)]["dest team"].value_counts()
-        st.dataframe(ldf)
-    with col4:
-        ldf = edited_movesdf[edited_movesdf['dest team'].str.contains('SH', case=False, na=False)]["dest team"].value_counts()
-        st.dataframe(ldf)
-
+    cols = [col1, col2, col3, col4]
+    index = 0 
+    for key in clan_ids.keys():
+        with cols[index % len(cols)]:
+            index += 1
+            ldf = edited_movesdf[edited_movesdf['dest team'].str.contains(key, case=False, na=False)]["dest team"].value_counts() +1 
+            st.dataframe(ldf)
+    
 
     st.subheader("Moves formated")
     st.info(
@@ -675,10 +721,14 @@ b)"""
     move_list =f"""{move_list}
 c)"""
     sorted_move_list = edited_movesdf.sort_values(by="from")
+    count = 0
     for _, row in sorted_move_list.iterrows():
         if not pd.isna(row["destination"] )  and  row["destination"]  !=  row["from"]:
+            count += 1
             move_list = f"{move_list}\n{row["player_id"]} - {row["from"]:.0f} - {row["destination"]:.0f}"
     st.code(move_list)
+
+    st.write(f"{count} Movements ")
 
 
 
