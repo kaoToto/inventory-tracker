@@ -459,6 +459,9 @@ if "movesdf" in st.session_state.keys() :
     for key, value in clan_names:
         st.write(f"{key}: {value}")
 
+    st.write(f"Changes:")
+
+    st.write(f"player - from - to")
     for _, row in st.session_state.movesdf.sort_values(by="origin").iterrows():
         st.write(f"{row["player_id"]} - {row["origin"]} - {row["destination"]}")
 
