@@ -155,7 +155,6 @@ def add_generals(conn):
         VALUES
             {empty_general_list.strip(",")};
         """
-    st.write(query)
 
     cursor.execute( query )
     conn.commit()
