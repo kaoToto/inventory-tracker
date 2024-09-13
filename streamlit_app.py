@@ -398,8 +398,8 @@ if "players_df" in st.session_state:
             "from",
             "destination",
             "player_name",
-            "current team",
             "origin",
+            "current team",
             "destname", "rank"]
             )
     for index, nwo_clan_id in enumerate(clan_ids["NWO"]):
