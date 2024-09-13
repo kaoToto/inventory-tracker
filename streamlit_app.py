@@ -666,16 +666,24 @@ if "movesdf" in st.session_state.keys() :
     st.info("""
     Use this table to check moves and edit dest team.
     The table below will be recalculated after each edit, 
-    make sure that clans are full but not over 50 
+    make sure that clans are full but not over 50. 
+    Generals cant automove, they are not in the table
     """)
+    filter_moves_only = st.checkbox("Filter on moves only")
+   
+    filtered_moves_df= st.session_state.movesdf[ st.session_state.movesdf['from'] !=  st.session_state.movesdf['destination'] ]  if filter_moves_only else st.session_state.movesdf
     edited_movesdf = st.data_editor(
-        st.session_state.movesdf,
+        filtered_moves_df,
         num_rows="dynamic",
         disabled=("player_id",
+            "from",
+            "destination",
             "player_name",
             "origin",
             "current team","rank"),
         column_order = ("player_id",
+            "from",
+            "destination",
             "player_name",
             "origin", 
             "current team","dest team" ,"rank")
