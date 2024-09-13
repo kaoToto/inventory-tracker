@@ -13,7 +13,7 @@ import numpy as np
 # Set the title and favicon that appear in the Browser's tab bar.
 st.set_page_config(
     page_title="NWO transfers",
-    page_icon=":shopping_bags:",  # This is an emoji shortcode. Could be a URL too.
+    page_icon=":recycle:",  # This is an emoji shortcode. Could be a URL too.
 )
 link_temmplate = "https://www.armyneedyou.com/team/user_export?type=current&dateType=lastday&token=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9."
 clan_ids =  { 
@@ -252,7 +252,7 @@ def update_data(conn, df, changes):
 
 # Set the title that appears at the top of the page.
 """
-# :shopping_bags: NWO transfers
+# :recycle: NWO transfers
 
 **Welcome to NWO transfer**
 
