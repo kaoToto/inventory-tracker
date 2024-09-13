@@ -131,8 +131,7 @@ def initialize_data(conn):
     conn.commit()
 
 def add_generals(conn):
-    """ migration """
-    """Initializes the generals table with some data."""
+    """ migration : Initializes the generals table with some data. """
     empty_general_list = ""
     for k, _ in clan_names.items():
         empty_general_list = f""" {empty_general_list}
