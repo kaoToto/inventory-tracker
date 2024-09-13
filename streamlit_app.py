@@ -457,8 +457,8 @@ if "movesdf" in st.session_state.keys() :
 
     clan_names_string = "Clans of the NWO, RES, SH and BRA familly :"
     for key, value in clan_names.items():
-            clan_names_string = f"{clan_names_string}, {key}: {value}"
-    st.write(clan_names_string)
+            clan_names_string = f"{clan_names_string} {key}: {value},"
+    st.write(clan_names_string.rstrip(","))
 
     st.write(f" ")
     st.write(f"Changes:")
