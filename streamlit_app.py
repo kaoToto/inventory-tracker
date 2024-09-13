@@ -424,7 +424,7 @@ if "players_df" in st.session_state:
                     "player_name": row["Name"],
                     "current team":row["Current Clan Name"],
                     "origin":row["origin"],
-                    "destname" : clan_names[nwo_clan_id] if nwo_clan_id in  clan_names else nwo_clan_id,
+                    "dest team" : clan_names[nwo_clan_id] if nwo_clan_id in  clan_names else nwo_clan_id,
                     "rank" : row["Ranking"]
                     }
                 # Add the new row using loc
@@ -448,7 +448,7 @@ if "players_df" in st.session_state:
                         "player_name": row["Name"],
                         "current team":clan_names[row["Current Clan"]] if row["Current Clan"] in  clan_names else "",
                         "origin":row["origin"],
-                        "destname" : clan_names[target_clan_id] if target_clan_id in  clan_names else clan_to_sort,
+                        "dest team" : clan_names[target_clan_id] if target_clan_id in  clan_names else clan_to_sort,
                         "rank" : row["Ranking"]
                         }
                     # Add the new row using loc
@@ -474,7 +474,8 @@ if "movesdf" in st.session_state.keys() :
     st.write(f"Changes:")
     st.write(f"player - from - to")
     move_list =""
-    for _, row in st.session_state.movesdf.sort_values(by="origin").iterrows():
+    sorted_move_list =st.session_state.movesdf.sort_value(by="from"))
+    for _, row in sorted_move_list.iterrows():
         move_list = f"{move_list}\n{row["player_id"]} - {row["from"]} - {row["destination"]}"
     st.code(move_list)
 
