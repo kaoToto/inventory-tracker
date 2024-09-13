@@ -579,7 +579,8 @@ if "players_df" in st.session_state:
     merged_df['Name'] = merged_df['Name'].fillna('?')
     merged_df['name_clan'] = merged_df['Name'] + ' (' + merged_df['clan_name'] + ')'
     wandering_generals = merged_df[  merged_df['at_home']  == False ]
-    st.warning(f"The following listed Generals are not even in their clan {str(wandering_generals['name_clan'].tolist())}")
+    if not wandering_generals['name_clan'].empty:
+        st.warning(f"The following listed Generals are not even in their clan {str(wandering_generals['name_clan'].tolist())}")
     def find_middle_player(clan_id):
         # Filter player_df by clan_id
         clan_players = st.session_state.players_df[st.session_state.players_df['Current Clan'] == clan_id]
