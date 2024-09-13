@@ -533,10 +533,8 @@ if st.button("Reload players ranks from NWO"):
 if "players_df" in st.session_state:
     #st.dataframe(st.session_state.players_df)
     ## All players
-
-    st.session_state.players_df = st.data_editor(
-        st.session_state.players_df,
-        num_rows="dynamic")
+    st.dataframe(st.session_state.players_df )
+    
     
     st.session_state.moves = ""
     ## Moves to NWO
