@@ -57,7 +57,6 @@ for k, v in clan_names.items():
         clan_ids[family].append(k)
 
 
-print(str(clan_ids))
 
 
 possible_families = list(clan_ids.keys())
@@ -647,8 +646,7 @@ if "players_df" in st.session_state:
     
     clans_to_sort = possible_families
     for clan_to_sort in clans_to_sort: 
-        print(f"clan to sort: {clan_to_sort}")
-        print()
+    
         remaining_players_clan = remaining_players_df[remaining_players_df['origin'] == clan_to_sort]
         for index, target_clan_id in enumerate(clan_ids[clan_to_sort]):
             for _, row in remaining_players_clan[49*index:49+49*index].iterrows():
