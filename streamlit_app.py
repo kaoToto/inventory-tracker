@@ -752,7 +752,7 @@ if "movesdf" in st.session_state.keys() :
         st.download_button(
             label="Download Excel file",
             data=excel_data,
-            file_name=f"{file_name}.xslx",
+            file_name=f"{file_name}.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
 
