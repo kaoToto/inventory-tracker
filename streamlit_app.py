@@ -11,7 +11,9 @@ from io import StringIO
 import numpy as np
 import re
 import unicodedata
+from datetime import datetime
 
+import io
 
 # Set the title and favicon that appear in the Browser's tab bar.
 st.set_page_config(
@@ -356,9 +358,9 @@ with st.expander("How to use?"):
 
     You get two tables, one with the full player list sorted by rank. A second with all moves
     You may edit the destination clan in the second table, please check that you do not overfill a clan above 50
-    You may also download any of the tables as csv to do whatever you want with it in excell 
+    You may also download any of the tables as csv to do whatever you want with it in excel
 
-4.  The full transfer list in the format requested by the devs is then available.
+4.  The full transfer list in the format requested by the devs is then available for download in excel format.
 """)
 
 st.subheader("Clans of Origin")
@@ -727,35 +729,104 @@ if "movesdf" in st.session_state.keys() :
             st.dataframe(ldf)
     
 
-   
+    export_df = st.session_state.movesdf[ st.session_state.movesdf['from'] !=  st.session_state.movesdf['destination'] ] 
+    export_df = export_df.sort_values(by=['from', 'destination'])   
+    export_df = export_df.rename(columns={'from': 'from_clan_id', 'destination': 'to_clan_id'})
+    # Get the current date in YYYY-MM-DD format
+    current_date = datetime.now().strftime("%Y-%m-%d")
+    file_name = f"NWO_Rotations_{current_date}"
 
-    move_list="""
-a) Produced by Rom Ⓡᵉˢ, player id 2770772, NWO GENERAL
-b) NWO Family clans: """ 
+    # Function to convert DataFrame to Excel and return as a downloadable object
+    def to_excel(df):
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            df.to_excel(writer, index=False)
+        processed_data = output.getvalue()
+        return processed_data
 
-    for key, value in clan_names.items():
-            move_list = f"{move_list} {value},"
-    move_list=move_list.rstrip(",")
+    # Create an Excel file for download
+    excel_data = to_excel(export_df)
+    # Create a button for downloading the Excel file
+    col1, col2 , _ , _= st.columns([1,1,1,1])
+    with col1: 
+        st.download_button(
+            label="Download Excel file",
+            data=excel_data,
+            file_name=f"{file_name}.xslx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
 
-    move_list =f"""{move_list}
-c) Moves
-player_id - from_clan - destination_clan"""
-    sorted_move_list = edited_movesdf.sort_values(by="from")
+    moves = ""
     count = 0
-    for _, row in sorted_move_list.iterrows():
-        if not pd.isna(row["destination"] )  and  row["destination"]  !=  row["from"]:
-            count += 1
-            move_list = f"{move_list}\n{row["player_id"]} - {row["from"]:.0f} - {row["destination"]:.0f}"
+
+    for clan_id in clan_names.keys():
+        moves = f"""{moves}
+
+KICK from {clan_names[clan_id]} - id: {clan_id}
+""" 
+
+        for _, row in export_df[export_df["from_clan_id"] == clan_id ].iterrows():
+            if not pd.isna(row["to_clan_id"] )  and  row["to_clan_id"]  !=  row["from_clan_id"]:
+                count += 1
+                moves = f"{moves}\n{row["player_id"]}"
+    moves = f"""{moves}
+
+########################################################################
+End of kick lists, 
+Beginning of Move into lists
+######################################################################## """ 
     
+    for clan_id in clan_names.keys():
+        moves = f"""{moves}
+
+MOVE INTO {clan_names[clan_id]} - id: {clan_id}
+""" 
+        for _, row in export_df[export_df["to_clan_id"] == clan_id ].iterrows():
+            moves = f"{moves}\n{row["player_id"]}"
+    
+
+    with col2: 
+        # Create a download button for the text file
+        st.download_button(
+            label="Download Text File",
+            data=moves,
+            file_name=f"{file_name}.txt",
+            mime="text/plain"
+        )
     st.write(f"{count} Movements / {len(st.session_state.players_df)}")
 
-    st.subheader("Moves formated")
-    st.info(
-    """
-    This is the format requested by the devs, copy the full text, save it in a txt file and send them.
-    """
-    )   
-    st.code(move_list)
+    with st.expander("show moves"):
+        st.code(moves)
+
+    if False: 
+
+        move_list="""
+    a) Produced by Rom Ⓡᵉˢ, player id 2770772, NWO GENERAL
+    b) NWO Family clans: """ 
+
+        for key, value in clan_names.items():
+                move_list = f"{move_list} {value},"
+        move_list=move_list.rstrip(",")
+
+        move_list =f"""{move_list}
+    c) Moves
+    player_id - from_clan - destination_clan"""
+        sorted_move_list = edited_movesdf.sort_values(by="from")
+        count = 0
+        for _, row in sorted_move_list.iterrows():
+            if not pd.isna(row["destination"] )  and  row["destination"]  !=  row["from"]:
+                count += 1
+                move_list = f"{move_list}\n{row["player_id"]} - {row["from"]:.0f} - {row["destination"]:.0f}"
+        
+        st.write(f"{count} Movements / {len(st.session_state.players_df)}")
+
+        st.subheader("Moves formated")
+        st.info(
+        """
+        This is the format requested by the devs, copy the full text, save it in a txt file and send them.
+        """
+        )   
+        st.code(move_list)
 
 
 
