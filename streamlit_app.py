@@ -738,7 +738,8 @@ b) NWO Family clans: """
     move_list=move_list.rstrip(",")
 
     move_list =f"""{move_list}
-c) Moves"""
+c) Moves
+player_id - from_clan - destination_clan"""
     sorted_move_list = edited_movesdf.sort_values(by="from")
     count = 0
     for _, row in sorted_move_list.iterrows():
