@@ -412,7 +412,7 @@ generals_df['player_name']= generals_df['player_id'].apply( lambda player_id :  
 with col1: 
     st.dataframe(
         generals_df,
-        column_order = ("clan_name",   "player_id",  "player_name"),   
+        column_order = ("clan_id", "clan_name",   "player_id",  "player_name"),   
     )
                 
 with col2: 
