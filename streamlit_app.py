@@ -399,7 +399,7 @@ st.subheader("Generals")
 
 
 
-col1,col2 = st.columns([1,1])
+col1,col2 = st.columns([3,2])
 generals_df['priority'] = generals_df['clan_name'].apply(lambda x: f"0{x}" if x.startswith('NW') else f"1{x}" )
 
 generals_df =  generals_df.sort_values(by='priority')
