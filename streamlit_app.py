@@ -342,11 +342,26 @@ def update_players_data(conn, df, changes):
 
 **Welcome to NWO transfers site**
 
-This page saves clan of origin for each player in our clan database.
-This page then proposes you to doanload last available reset rank and calculate all clan moves. 
-Top players will be in NWO and other players will be sorted in their own clan of origin.
+*This page prepares NWO clan movements.*
+
 """
 
+with st.expander("How to use?"):
+    st.markdown("""
+
+
+1. *[Optional]* In the first table, set a clan of origin for NWO players that are not identifed as BRA / SH / RES. Those without orgin clan will be first
+2. **[Compulsory]** Make sure you have the correct list of generals
+3. Press the load button to download and process last reset's reports. They are available 2-3 hours after reset
+
+    You get two tables, one with the full player list sorted by rank. A second with all moves
+    You may edit the destination clan in the second table, please check that you do not overfill a clan above 50
+    You may also download any of the tables as csv to do whatever you want with it in excell 
+
+4.  The full transfer list in the format requested by the devs is then available.
+""")
+
+st.subheader("Clans of Origin")
 st.info(
     """
     Use the following table to set a team (RES, BRA, SH) of origin for all NWO players.
@@ -371,33 +386,35 @@ players_df = players_df.sort_values(by='clan', ascending=True)
 
 generals_df = load_generals_data(conn)
 
+col1,col2 = st.columns([3,2])
 
+with col1:
 # Display data with editable table
-edited_df = st.data_editor(
-    players_df,
-    num_rows="dynamic",  # Allow appending/deleting rows.
-    column_config={
-        # Show dollar sign before price columns.
-        #"price": st.column_config.NumberColumn(format="$%.2f"),
-        #"cost_price": st.column_config.NumberColumn(format="$%.2f"),
-    },
-    key="player_table",
-)
+    edited_df = st.data_editor(
+        players_df,
+        num_rows="dynamic",  # Allow appending/deleting rows.
+        column_config={
+            # Show dollar sign before price columns.
+            #"price": st.column_config.NumberColumn(format="$%.2f"),
+            #"cost_price": st.column_config.NumberColumn(format="$%.2f"),
+        },
+        key="player_table",
+    )
+    has_uncommitted_changes = any(len(v) for v in st.session_state.player_table.values())
 
-has_uncommitted_changes = any(len(v) for v in st.session_state.player_table.values())
-
-st.button(
-    ":warning: Save Changes",
-    type="primary",
-    disabled=not has_uncommitted_changes,
-    # Update data in database
-    on_click=update_players_data,
-    args=(conn, players_df, st.session_state.player_table),
-)
+with col2:
+    st.button(
+        ":warning: Save Changes",
+        type="primary",
+        disabled=not has_uncommitted_changes,
+        # Update data in database
+        on_click=update_players_data,
+        args=(conn, players_df, st.session_state.player_table),
+    )
 
 st.subheader("Generals")
 
-
+st.info("It is mandatory to have un up to date list of generals")
 
 col1,col2 = st.columns([3,2])
 generals_df['priority'] = generals_df['clan_name'].apply(lambda x: f"0{x}" if x.startswith('NW') else f"1{x}" )
@@ -446,7 +463,7 @@ with col2:
 
 
 
-
+st.subheader("Pull last reset reports from aow")
 st.info(
     """
     Use the following button to pull last available reset ranks from AOW and edit movements
@@ -530,6 +547,7 @@ if st.button("Reload players ranks from NWO"):
     st.rerun()
 
 if "players_df" in st.session_state:
+    st.subheader("Full player list")
     #st.dataframe(st.session_state.players_df)
     ## All players
     st.dataframe(st.session_state.players_df )
@@ -667,7 +685,8 @@ if "movesdf" in st.session_state.keys() :
     Use this table to check moves and edit dest team.
     The table below will be recalculated after each edit, 
     make sure that clans are full but not over 50. 
-    Generals cant automove, they are not in the table
+            
+    Generals cannot be moved, they are not in the table
     """)
     filter_moves_only = st.checkbox("Filter on moves only")
    
@@ -711,15 +730,15 @@ if "movesdf" in st.session_state.keys() :
    
 
     move_list="""
-a) Rom Ⓡᵉˢ, id 2770772, NWO GENERAL
-b)"""
+a) Produced by Rom Ⓡᵉˢ, player id 2770772, NWO GENERAL
+b) NWO Family clans: """ 
 
     for key, value in clan_names.items():
             move_list = f"{move_list} {value},"
     move_list=move_list.rstrip(",")
 
     move_list =f"""{move_list}
-c)"""
+c) Moves"""
     sorted_move_list = edited_movesdf.sort_values(by="from")
     count = 0
     for _, row in sorted_move_list.iterrows():
@@ -732,7 +751,7 @@ c)"""
     st.subheader("Moves formated")
     st.info(
     """
-    Use the following text to send to the devs
+    This is the format requested by the devs, copy the full text, save it in a txt file and send them.
     """
     )   
     st.code(move_list)
