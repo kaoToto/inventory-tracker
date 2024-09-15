@@ -754,78 +754,8 @@ if "movesdf" in st.session_state.keys() :
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
 
-    moves = ""
-    count = 0
+    count = len(export_df)
 
-    for clan_id in clan_names.keys():
-        moves = f"""{moves}
+    st.write(f"{count} Movements / {len(st.session_state.players_df)} Ranked players")
 
-KICK from {clan_names[clan_id]} - id: {clan_id}
-""" 
-
-        for _, row in export_df[export_df["from_clan_id"] == clan_id ].iterrows():
-            if not pd.isna(row["to_clan_id"] )  and  row["to_clan_id"]  !=  row["from_clan_id"]:
-                count += 1
-                moves = f"{moves}\n{row["player_id"]}"
-    moves = f"""{moves}
-
-########################################################################
-End of kick lists, 
-Beginning of Move into lists
-######################################################################## """ 
-    
-    for clan_id in clan_names.keys():
-        moves = f"""{moves}
-
-MOVE INTO {clan_names[clan_id]} - id: {clan_id}
-""" 
-        for _, row in export_df[export_df["to_clan_id"] == clan_id ].iterrows():
-            moves = f"{moves}\n{row["player_id"]}"
-    
-
-    with col2: 
-        # Create a download button for the text file
-        st.download_button(
-            label="Download Text File",
-            data=moves,
-            file_name=f"{file_name}.txt",
-            mime="text/plain"
-        )
-    st.write(f"{count} Movements / {len(st.session_state.players_df)}")
-
-    with st.expander("show moves"):
-        st.code(moves)
-
-    if False: 
-
-        move_list="""
-    a) Produced by Rom Ⓡᵉˢ, player id 2770772, NWO GENERAL
-    b) NWO Family clans: """ 
-
-        for key, value in clan_names.items():
-                move_list = f"{move_list} {value},"
-        move_list=move_list.rstrip(",")
-
-        move_list =f"""{move_list}
-    c) Moves
-    player_id - from_clan - destination_clan"""
-        sorted_move_list = edited_movesdf.sort_values(by="from")
-        count = 0
-        for _, row in sorted_move_list.iterrows():
-            if not pd.isna(row["destination"] )  and  row["destination"]  !=  row["from"]:
-                count += 1
-                move_list = f"{move_list}\n{row["player_id"]} - {row["from"]:.0f} - {row["destination"]:.0f}"
-        
-        st.write(f"{count} Movements / {len(st.session_state.players_df)}")
-
-        st.subheader("Moves formated")
-        st.info(
-        """
-        This is the format requested by the devs, copy the full text, save it in a txt file and send them.
-        """
-        )   
-        st.code(move_list)
-
-
-
-
+  
