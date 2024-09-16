@@ -1,6 +1,5 @@
 from collections import defaultdict
 from pathlib import Path
-import sqlite3
 
 import streamlit as st
 import altair as alt
@@ -17,100 +16,13 @@ import io
 import psycopg2
 from psycopg2 import sql
 
-#database on https://cloud.tembo.io/
-def migrate_to_postgres():
-   
-    # SQLite connection (local)
-    sqlite_conn = sqlite3.connect('players.db')
-    sqlite_cursor = sqlite_conn.cursor()
-
-    # PostgreSQL connection (remote)
-    pg_conn = psycopg2.connect(
-        host=st.secrets.DB_HOST,
-        port=st.secrets.DB_PORT,
-        user=st.secrets.DB_USER,
-        password=st.secrets.DB_PASS,  # replace with your actual password
-        dbname="postgres"  # the default database
-    )
-    pg_cursor = pg_conn.cursor()
-
-    # Step 1: Create tables in PostgreSQL if they don't exist
-    create_players_table = """
-    CREATE TABLE IF NOT EXISTS players (
-        player_id SERIAL PRIMARY KEY,
-        player_name TEXT,
-        clan TEXT
-    );
-    """
-
-    create_generals_table = """
-    CREATE TABLE IF NOT EXISTS generals (
-        clan_id SERIAL PRIMARY KEY,
-        player_id INTEGER REFERENCES players(player_id)
-    );
-    """
-
-    pg_cursor.execute(create_players_table)
-    pg_cursor.execute(create_generals_table)
-    pg_conn.commit()
-
-    # Step 2: Migrate data from SQLite to PostgreSQL
-
-    # Migrate players table
-    sqlite_cursor.execute("SELECT player_id, player_name, clan FROM players")
-    players_data = sqlite_cursor.fetchall()
-
-    for player_id, player_name, clan in players_data:
-        pg_cursor.execute(
-            """
-            INSERT INTO players (player_id, player_name, clan)
-            VALUES (%s, %s, %s)
-            ON CONFLICT (player_id) DO NOTHING;
-            """, (player_id, player_name, clan)
-        )
-    pg_conn.commit()
-
-    # Migrate generals table
-    sqlite_cursor.execute("SELECT clan_id, player_id FROM generals")
-    generals_data = sqlite_cursor.fetchall()
-
-    for clan_id, player_id in generals_data:
-        pg_cursor.execute(
-            """
-            INSERT INTO players (player_id, player_name, clan)
-            VALUES (%s, %s, %s)
-            ON CONFLICT (player_id) DO NOTHING;
-            """, (player_id, 'Unknown', 'Unknown')
-        )
-        pg_cursor.execute(
-            """
-            INSERT INTO generals (clan_id, player_id)
-            VALUES (%s, %s)
-            ON CONFLICT (clan_id) DO NOTHING;
-            """, (clan_id, player_id)
-        )
-    pg_conn.commit()
-
-    # Close connections
-    sqlite_conn.close()
-    pg_cursor.close()
-    pg_conn.close()
-
-    print("Data migration completed successfully!")
-
+#database is on https://cloud.tembo.io/
 
 # Set the title and favicon that appear in the Browser's tab bar.
 st.set_page_config(
     page_title="NWO transfers",
     page_icon=":recycle:",  # This is an emoji shortcode. Could be a URL too.
 )
-
-
-#migration from local sqlite to cloud pgsql
-#needs uncommenting those lines
-#if st.button("migrate to cloud"):
-#    migrate_to_postgres()
-#assert(False) 
 
 # Clan list 
 
@@ -192,18 +104,6 @@ if False:
 
 # -----------------------------------------------------------------------------
 # Declare some useful db functions.
-
-
-def old_connect_db():
-    """Connects to the sqlite database."""
-
-    DB_FILENAME = Path(__file__).parent / "players.db"
-    db_already_exists = DB_FILENAME.exists()
-
-    conn = sqlite3.connect(DB_FILENAME)
-    db_was_just_created = not db_already_exists
-
-    return conn, db_was_just_created
 
 # Function to check if a table exists in the PostgreSQL database
 def check_table_exists(cursor, table_name):
@@ -459,7 +359,7 @@ def update_players_data(conn, df, changes):
 
     if changes["deleted_rows"]:
         cursor.executemany(
-            "DELETE FROM players WHERE player_id = :player_id",
+            "DELETE FROM players WHERE player_id = %(player_id)s",
             ({"player_id": int(df.loc[i, "player_id"])} for i in changes["deleted_rows"]),
         )
 
