@@ -247,7 +247,7 @@ def add_new_general(clan_id, player_id):
     cursor = conn.cursor()
     cursor.execute(
         f"""
-        INSERT OR IGNORE INTO generals
+        INSERT  INTO generals
             (clan_id , player_id)
         VALUES
             ({clan_id}, {player_id})
@@ -303,8 +303,8 @@ def add_or_update_general(clan_id, player_id):
     conn.commit()
 
 
-
-def load_players_data(conn):
+@st.cache_data 
+def load_players_data(_conn):
     """Loads the players data from the database."""
     cursor = conn.cursor()
     try:
@@ -334,7 +334,8 @@ def player_name_for_id (row, playerdf):
         return line["Name"].values[0]          
     return ''
 
-def load_generals_data(conn):
+@st.cache_data 
+def load_generals_data(_conn):
     """Loads the generals data from the database."""
     cursor = conn.cursor()
     try:
@@ -357,24 +358,83 @@ def load_generals_data(conn):
     df = df[df['clan_name'] != '']
     return df
 
-def batch_update_players(conn, df, tag):
-   
-    data_to_update = df.to_dict(orient='records')
-   
-    cursor = conn.cursor()
-    cursor.executemany(
-            """
-            UPDATE players
-            SET
-                player_name = %(player_name)s,
-                clan = %(Team)s
-            WHERE player_id = %(player_id)s
-            """,
-            data_to_update,
-        )
+@st.cache_data 
+def batch_update_players(_conn, df,  player_df):
+    """Check whether reports players are in the dB and add them and if db clan is up to date or update it."""
+    
+
+
+    # Convert 'p_id' columns in both df1 and df2 to string type
+    df['player_id'] = df['player_id'].astype(int)
+    player_df['player_id'] = player_df['player_id'].astype(int)
+    df['player_name'] = df['player_name'].astype(str)
+    player_df['player_name'] = player_df['player_name'].astype(str)
+    df['clan'] = df['clan'].astype(str)
+    player_df['clan'] = player_df['clan'].astype(str)
+
+    new_rows = df[~df['player_id'].isin(player_df['player_id'])]
+
+
+    if len(new_rows)  > 0 :
+        st.write("new_players")
+        st.dataframe(new_rows)
+
+        # Result: updated_df2 only contains rows that are new or updated
+        data_to_update = new_rows.to_dict(orient='records')
+        
+
+        cursor = conn.cursor()
+        cursor.executemany(
+                """
+                 INSERT  INTO players
+                    (player_id , player_name,  clan)
+                VALUES
+                    player_name = %(player_name)s,
+                    clan = %(clan)s
+                    player_id = %(player_id)s
+                ON CONFLICT (player_id) DO NOTHING;
+                """,
+                data_to_update,
+            )
+        
+    # Find rows where player_id exists in both but with different values
+    common_rows = df[df['player_id'].isin(player_df['player_id'])]
+
+    # Merge to compare columns (excluding player_id from comparison)
+    merged = common_rows.merge(player_df, on='player_id', how='left', suffixes=('_df2', '_df1'))
+
+
+    # Find rows where values differ (compare each column in df2 to df1)
+    merged["is_equal"] = (merged["clan_df2"]  == merged["clan_df1"]) & ( merged["player_name_df2"]  == merged["player_name_df1"])
+    updated_rows = merged[ merged["is_equal"] == False        ]
+
+    updated_rows = updated_rows[[col for col in merged.columns if not '_df1' in col]].copy()
+    updated_rows.columns = updated_rows.columns.str.replace('_df2', '')
+
+
+    if len(updated_rows)  > 0 :
+
+        st.write("updated players")
+        st.dataframe(updated_rows)
+
+        # Result: updated_df2 only contains rows that are new or updated
+        data_to_update = updated_rows.to_dict(orient='records')
+        
+
+        cursor = conn.cursor()
+        cursor.executemany(
+                """
+                UPDATE players
+                SET
+                    player_name = %(player_name)s,
+                    clan = %(clan)s
+                WHERE player_id = %(player_id)s
+                """,
+                data_to_update,
+            )
 
 def update_players_data(conn, df, changes):
-    """Updates the players data in the database."""
+    """Updates the players data in the database after the clan is manually edit in UI."""
     cursor = conn.cursor()
 
     if changes["edited_rows"]:
@@ -475,7 +535,14 @@ add_generals(conn)
 players_df = load_players_data(conn)
 players_df = players_df.sort_values(by='clan', ascending=True)
 
+players_df['player_id'] = players_df['player_id'].astype(int)
+players_df['clan'] = players_df['clan'].astype(str)
+players_df['player_name'] = players_df['player_name'].astype(str)
+
 generals_df = load_generals_data(conn)
+
+generals_df['clan_id'] = generals_df['clan_id'].astype(int)
+generals_df['player_id'] = generals_df['player_id'].astype(int)
 
 col1,col2 = st.columns([3,2])
 
@@ -586,6 +653,9 @@ def pull_all_links(clan_tag):
         local_df['Team'] = clan_tag
         local_df['Current Clan'] = clan_id
         local_df['Current Clan Name'] = clan_names[clan_id] if clan_id in clan_names else ""
+
+
+        local_df['ID'] = local_df['ID'].astype(int)
         target_df = pd.concat( [target_df,local_df], ignore_index=True)
         
     return target_df
@@ -593,8 +663,8 @@ def pull_all_links(clan_tag):
 def assign_users(df,tag):
     print(df.head())
     df2 = df[['ID','Name' ,'Team']]
-    df2  =  df2.rename(columns={'ID': 'player_id', 'Name': 'player_name'})
-    batch_update_players(conn, df2, tag)
+    df2  =  df2.rename(columns={'ID': 'player_id', 'Name': 'player_name','Team':'clan'})
+    batch_update_players(conn, df2, players_df)
 
    
 
@@ -619,32 +689,38 @@ def fill_missing_values(row):
     
 
 if st.button("Reload players ranks from NWO"):
-    df_sh = pull_all_links("SH")
-    assign_users(df_sh,"SH")
-    df_res = pull_all_links("RES")
-    assign_users(df_res,"RES")
-    df_bra = pull_all_links("BRA")
-    assign_users(df_bra,"BRA")
+    with st.spinner("Pulling NWO report"): 
+        df_nwo= pull_all_links("NWO")
+        st.session_state.players_ranks_df = df_nwo
+        new_df_nwo =  df_nwo[~df_nwo['ID'].isin(players_df['player_id'])]
+        create_new_users(new_df_nwo)
+        st.session_state.players_ranks_df = df_nwo
 
-    df_nwo= pull_all_links("NWO")
-    create_new_users(df_nwo)
+    for key in clan_ids.keys():
+        if key != "NWO":
+            with st.spinner(f"Pulling {key} report"): 
+                df_team = pull_all_links(key)
+                assign_users(df_team,key)
+                st.session_state.players_ranks_df = pd.concat([st.session_state.players_ranks_df,df_team ])
 
-    st.session_state.players_df = pd.concat ([df_sh,df_res,df_bra,df_nwo])
-    st.session_state.players_df = st.session_state.players_df.sort_values(by='Trophies', ascending=False)
-    print("before apply len",len(st.session_state.players_df))
-    st.session_state.players_df['ID'] =  pd.to_numeric(st.session_state.players_df['ID'], errors='coerce')
+    
 
-    st.session_state.players_df['origin'] = st.session_state.players_df.apply(fill_missing_values, axis=1)
-    print("after apply len",len(st.session_state.players_df))
+   
+
+    st.session_state.players_ranks_df = st.session_state.players_ranks_df.sort_values(by='Trophies', ascending=False)
+    print("before apply len",len(st.session_state.players_ranks_df))
+    st.session_state.players_ranks_df['ID'] =  pd.to_numeric(st.session_state.players_ranks_df['ID'], errors='coerce')
+
+    st.session_state.players_ranks_df['origin'] = st.session_state.players_ranks_df.apply(fill_missing_values, axis=1)
+    print("after apply len",len(st.session_state.players_ranks_df))
 
     st.rerun()
 
-if "players_df" in st.session_state:
+if "players_ranks_df" in st.session_state:
     st.subheader("Full player list")
-    #st.dataframe(st.session_state.players_df)
     ## All players
-    st.dataframe(st.session_state.players_df )
-    
+    st.dataframe(st.session_state.players_ranks_df )
+
     
     st.session_state.moves = ""
     ## Moves to NWO
@@ -676,9 +752,9 @@ if "players_df" in st.session_state:
 
     # Merge player_df with general_df on player_id
 
-   
-    st.session_state.players_df['player_id'] = st.session_state.players_df['ID']
-    merged_df = generals_df.merge(st.session_state.players_df[['player_id', 'Name', 'Current Clan']], 
+
+    st.session_state.players_ranks_df['player_id'] = st.session_state.players_ranks_df['ID']
+    merged_df = generals_df.merge(st.session_state.players_ranks_df[['player_id', 'Name', 'Current Clan']], 
                              on= 'player_id', 
                              how='left', 
                              )
@@ -693,7 +769,7 @@ if "players_df" in st.session_state:
         st.warning(f"The following listed Generals are not even in their clan {str(wandering_generals['name_clan'].tolist())}")
     def find_middle_player(clan_id):
         # Filter player_df by clan_id
-        clan_players = st.session_state.players_df[st.session_state.players_df['Current Clan'] == clan_id]
+        clan_players = st.session_state.players_ranks_df[st.session_state.players_ranks_df['Current Clan'] == clan_id]
         
         if not clan_players.empty:
             # Get the middle index
@@ -710,12 +786,12 @@ if "players_df" in st.session_state:
         else:
             return find_middle_player(general_row['clan_id'])  # Replace if not at home
         
-    
+
     # Apply the function to find replacements for non-home generals
     merged_df['new_general'] = merged_df.apply(replace_general, axis=1)
-    st.session_state.players_df['cant_move'] = st.session_state.players_df['ID'].apply( lambda player_id :  player_id in merged_df['new_general'].tolist() )
-    
-    players_excepted_generals_df = st.session_state.players_df[st.session_state.players_df['cant_move']  == False]
+    st.session_state.players_ranks_df['cant_move'] = st.session_state.players_ranks_df['ID'].apply( lambda player_id :  player_id in merged_df['new_general'].tolist() )
+
+    players_excepted_generals_df = st.session_state.players_ranks_df[st.session_state.players_ranks_df['cant_move']  == False]
     for index, nwo_clan_id in enumerate(clan_ids["NWO"]):
         for _, row in players_excepted_generals_df.iloc[49*index:49+49*index].iterrows():
             #if row["Current Clan"] != nwo_clan_id:
@@ -735,7 +811,7 @@ if "players_df" in st.session_state:
             st.session_state.movesdf.loc[len(st.session_state.movesdf )] = new_row
 
     remaining_players_df = players_excepted_generals_df.iloc[49*nwo_clan_count:]
-    
+
     clans_to_sort = possible_families
     for clan_to_sort in clans_to_sort: 
     
@@ -848,6 +924,6 @@ if "movesdf" in st.session_state.keys() :
 
     count = len(export_df)
 
-    st.write(f"{count} Movements / {len(st.session_state.players_df)} Ranked players")
+    st.write(f"{count} Movements / {len(st.session_state.players_ranks_df)} Ranked players")
 
   
