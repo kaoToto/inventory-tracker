@@ -281,29 +281,30 @@ def add_or_update_player(conn, id, name,clan):
 
 def add_or_update_general(clan_id, player_id):
     cursor = conn.cursor()
-    cursor.execute(
-        f"""
+
+    query =   f"""
         INSERT INTO generals
             (clan_id , player_id)
         VALUES
             ({clan_id}, {player_id})
         ON CONFLICT (clan_id) DO NOTHING;
         """
-    )
+    print(query)
+    cursor.execute(query    )
 
-    cursor.execute(  
-        f"""
+
+    query2 = f"""
         UPDATE generals 
         SET
             player_id = {player_id}
         WHERE 
             clan_id = {clan_id} 
         """
-    )
+    print(query2)
+    cursor.execute(query2    )
     conn.commit()
 
 
-@st.cache_data 
 def load_players_data(_conn):
     """Loads the players data from the database."""
     cursor = conn.cursor()
@@ -334,7 +335,6 @@ def player_name_for_id (row, playerdf):
         return line["Name"].values[0]          
     return ''
 
-@st.cache_data 
 def load_generals_data(_conn):
     """Loads the generals data from the database."""
     cursor = conn.cursor()
@@ -358,7 +358,6 @@ def load_generals_data(_conn):
     df = df[df['clan_name'] != '']
     return df
 
-@st.cache_data 
 def batch_update_players(_conn, df,  player_df):
     """Check whether reports players are in the dB and add them and if db clan is up to date or update it."""
     
@@ -436,7 +435,7 @@ def batch_update_players(_conn, df,  player_df):
 def update_players_data(conn, df, changes):
     """Updates the players data in the database after the clan is manually edit in UI."""
     cursor = conn.cursor()
-
+    print(f"""saving {len(changes["edited_rows"])} changes""")
     if changes["edited_rows"]:
         deltas = st.session_state.player_table["edited_rows"]
         rows = []
@@ -449,10 +448,11 @@ def update_players_data(conn, df, changes):
 
             if row_dict["clan"]  is None or row_dict["clan"] in possible_families :
                 rows.append(row_dict)
+                print( f"updating {str(row_dict)}")
             else :
                 st.toast(f"Invalid clan of origin `{row_dict['clan']}` for player {row_dict['player_name']}. Value must be in {str(possible_families)}")
 
-
+        print(str(rows))    
         cursor.executemany(
             """
             UPDATE players
@@ -465,6 +465,7 @@ def update_players_data(conn, df, changes):
         )
 
     if changes["added_rows"]:
+        print(f"""New players {str(changes["added_rows"])} """)
         cursor.executemany(
             """
             INSERT INTO players
@@ -476,6 +477,8 @@ def update_players_data(conn, df, changes):
         )
 
     if changes["deleted_rows"]:
+
+        print(f"""Deleted players {str(changes["deleted_rows"])} """)
         cursor.executemany(
             "DELETE FROM players WHERE player_id = %(player_id)s",
             ({"player_id": int(df.loc[i, "player_id"])} for i in changes["deleted_rows"]),
