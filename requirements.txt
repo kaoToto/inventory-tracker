@@ -3,5 +3,5 @@ pandas
 requests
 numpy
 openpyxl
-psycopg2
+psycopg2-binary
 libpq-dev
