@@ -357,6 +357,21 @@ def load_generals_data(conn):
     df = df[df['clan_name'] != '']
     return df
 
+def batch_update_players(conn, df, tag):
+   
+    data_to_update = df.to_dict(orient='records')
+   
+    cursor = conn.cursor()
+    cursor.executemany(
+            """
+            UPDATE players
+            SET
+                player_name = %(player_name)s,
+                clan = %(Team)s
+            WHERE player_id = %(player_id)s
+            """,
+            data_to_update,
+        )
 
 def update_players_data(conn, df, changes):
     """Updates the players data in the database."""
@@ -552,13 +567,14 @@ def get_last_day_link(clan_id):
     clan_string =get_clan_string(clan_id)
     clan_string_encoded = base64.b64encode(clan_string.encode("utf8")).decode("utf8").rstrip('=')
     url = f"{link_template}{clan_string_encoded}.NWOTOKEN&battle=pvp"
-    print(url)
+    print(f"{clan_id} : {url}")
     return url
 
 
  
 
 def pull_all_links(clan_tag):
+    print(f" Pull links for {clan_tag}")
     target_df=  pd.DataFrame() 
     for clan_id in clan_ids [clan_tag]: 
         url = get_last_day_link(clan_id)
@@ -574,12 +590,13 @@ def pull_all_links(clan_tag):
         
     return target_df
     
-def assign_users(df):
-    for _, row in df.iterrows():
-        id = row['ID']
-        name = row['Name']
-        team = row['Team']
-        add_or_update_player(conn, id,name,team)
+def assign_users(df,tag):
+    print(df.head())
+    df2 = df[['ID','Name' ,'Team']]
+    df2  =  df2.rename(columns={'ID': 'player_id', 'Name': 'player_name'})
+    batch_update_players(conn, df2, tag)
+
+   
 
 def create_new_users(df):
     for _, row in df.iterrows():
@@ -603,11 +620,11 @@ def fill_missing_values(row):
 
 if st.button("Reload players ranks from NWO"):
     df_sh = pull_all_links("SH")
-    assign_users(df_sh)
+    assign_users(df_sh,"SH")
     df_res = pull_all_links("RES")
-    assign_users(df_res)
+    assign_users(df_res,"RES")
     df_bra = pull_all_links("BRA")
-    assign_users(df_bra)
+    assign_users(df_bra,"BRA")
 
     df_nwo= pull_all_links("NWO")
     create_new_users(df_nwo)
