@@ -14,6 +14,90 @@ import unicodedata
 from datetime import datetime
 
 import io
+import psycopg2
+from psycopg2 import sql
+
+#database on https://cloud.tembo.io/
+def migrate_to_postgres():
+   
+    # SQLite connection (local)
+    sqlite_conn = sqlite3.connect('players.db')
+    sqlite_cursor = sqlite_conn.cursor()
+
+    # PostgreSQL connection (remote)
+    pg_conn = psycopg2.connect(
+        host=st.secrets.DB_HOST,
+        port=st.secrets.DB_PORT,
+        user=st.secrets.DB_USER,
+        password=st.secrets.DB_PASS,  # replace with your actual password
+        dbname="postgres"  # the default database
+    )
+    pg_cursor = pg_conn.cursor()
+
+    # Step 1: Create tables in PostgreSQL if they don't exist
+    create_players_table = """
+    CREATE TABLE IF NOT EXISTS players (
+        player_id SERIAL PRIMARY KEY,
+        player_name TEXT,
+        clan TEXT
+    );
+    """
+
+    create_generals_table = """
+    CREATE TABLE IF NOT EXISTS generals (
+        clan_id SERIAL PRIMARY KEY,
+        player_id INTEGER REFERENCES players(player_id)
+    );
+    """
+
+    pg_cursor.execute(create_players_table)
+    pg_cursor.execute(create_generals_table)
+    pg_conn.commit()
+
+    # Step 2: Migrate data from SQLite to PostgreSQL
+
+    # Migrate players table
+    sqlite_cursor.execute("SELECT player_id, player_name, clan FROM players")
+    players_data = sqlite_cursor.fetchall()
+
+    for player_id, player_name, clan in players_data:
+        pg_cursor.execute(
+            """
+            INSERT INTO players (player_id, player_name, clan)
+            VALUES (%s, %s, %s)
+            ON CONFLICT (player_id) DO NOTHING;
+            """, (player_id, player_name, clan)
+        )
+    pg_conn.commit()
+
+    # Migrate generals table
+    sqlite_cursor.execute("SELECT clan_id, player_id FROM generals")
+    generals_data = sqlite_cursor.fetchall()
+
+    for clan_id, player_id in generals_data:
+        pg_cursor.execute(
+            """
+            INSERT INTO players (player_id, player_name, clan)
+            VALUES (%s, %s, %s)
+            ON CONFLICT (player_id) DO NOTHING;
+            """, (player_id, 'Unknown', 'Unknown')
+        )
+        pg_cursor.execute(
+            """
+            INSERT INTO generals (clan_id, player_id)
+            VALUES (%s, %s)
+            ON CONFLICT (clan_id) DO NOTHING;
+            """, (clan_id, player_id)
+        )
+    pg_conn.commit()
+
+    # Close connections
+    sqlite_conn.close()
+    pg_cursor.close()
+    pg_conn.close()
+
+    print("Data migration completed successfully!")
+
 
 # Set the title and favicon that appear in the Browser's tab bar.
 st.set_page_config(
@@ -21,6 +105,11 @@ st.set_page_config(
     page_icon=":recycle:",  # This is an emoji shortcode. Could be a URL too.
 )
 
+if st.button("migrate to cloud"):
+    migrate_to_postgres()
+
+
+assert(False) 
 
 # Clan list 
 
@@ -104,7 +193,7 @@ if False:
 # Declare some useful db functions.
 
 
-def connect_db():
+def old_connect_db():
     """Connects to the sqlite database."""
 
     DB_FILENAME = Path(__file__).parent / "players.db"
@@ -112,6 +201,34 @@ def connect_db():
 
     conn = sqlite3.connect(DB_FILENAME)
     db_was_just_created = not db_already_exists
+
+    return conn, db_was_just_created
+
+# Function to check if a table exists in the PostgreSQL database
+def check_table_exists(cursor, table_name):
+    cursor.execute("""
+        SELECT EXISTS (
+            SELECT FROM information_schema.tables 
+            WHERE table_name = %s
+        );
+    """, (table_name,))
+    return cursor.fetchone()[0]  # Returns True if the table exists, False otherwise
+
+
+def connect_db():
+    """Connects to the pgsql database."""
+    # PostgreSQL connection (remote)
+    conn = psycopg2.connect(
+        host=st.secrets.DB_HOST,
+        port=st.secrets.DB_PORT,
+        user=st.secrets.DB_USER,
+        password=st.secrets.DB_PASS,  # replace with your actual password
+        dbname="postgres"  # the default database
+    )
+    pg_cursor = conn.cursor()
+    db_already_exists = check_table_exists(pg_cursor, 'players') and check_table_exists(pg_cursor, 'generals')
+    db_was_just_created = not db_already_exists
+
 
     return conn, db_was_just_created
 
@@ -133,6 +250,7 @@ def initialize_data(conn):
 
 def add_generals(conn):
     """ migration : Initializes the generals table with some data. """
+    
     empty_general_list = ""
     for k, _ in clan_names.items():
         empty_general_list = f""" {empty_general_list}
@@ -143,17 +261,26 @@ def add_generals(conn):
     cursor.execute(
         """
         CREATE TABLE IF NOT EXISTS generals (
-            clan_id INTEGER PRIMARY KEY,
-            player_id INTEGER
-        )
+            clan_id SERIAL PRIMARY KEY,
+            player_id INTEGER REFERENCES players(player_id)
+        );
         """
     )
-
     query = f"""
-        INSERT OR IGNORE INTO 'generals'
+        INSERT INTO players
+            (player_id , player_name,  clan)
+        VALUES
+            (0,'','')
+        ON CONFLICT (player_id) DO NOTHING;
+        """
+
+    cursor.execute( query )
+    query = f"""
+        INSERT INTO generals
             (clan_id , player_id)
         VALUES
-            {empty_general_list.strip(",")};
+            {empty_general_list.strip(",")}
+        ON CONFLICT (clan_id) DO NOTHING;
         """
 
     cursor.execute( query )
@@ -163,10 +290,11 @@ def add_new_player(id, name):
     cursor = conn.cursor()
     cursor.execute(
         f"""
-        INSERT OR IGNORE INTO players
+        INSERT INTO players
             (player_id , player_name,  clan)
         VALUES
             ({id}, '{name}','')
+        ON CONFLICT (player_id) DO NOTHING;
         """
     )
     conn.commit()
@@ -179,6 +307,7 @@ def add_new_general(clan_id, player_id):
             (clan_id , player_id)
         VALUES
             ({clan_id}, {player_id})
+        ON CONFLICT (clan_id) DO NOTHING;
         """
     )
     conn.commit()
@@ -187,10 +316,11 @@ def add_or_update_player(conn, id, name,clan):
     cursor = conn.cursor()
     cursor.execute(
         f"""
-        INSERT OR IGNORE INTO players
+        INSERT  INTO players
             (player_id , player_name,  clan)
         VALUES
             ({id}, '{name}',  '{clan}')
+        ON CONFLICT (player_id) DO NOTHING;
         """
     )
 
@@ -209,10 +339,11 @@ def add_or_update_general(clan_id, player_id):
     cursor = conn.cursor()
     cursor.execute(
         f"""
-        INSERT OR IGNORE INTO generals
+        INSERT INTO generals
             (clan_id , player_id)
         VALUES
             ({clan_id}, {player_id})
+        ON CONFLICT (clan_id) DO NOTHING;
         """
     )
 
@@ -307,9 +438,9 @@ def update_players_data(conn, df, changes):
             """
             UPDATE players
             SET
-                player_name = :player_name,
-                clan = :clan
-            WHERE player_id = :player_id
+                player_name = %(player_name)s,
+                clan = %(clan)s
+            WHERE player_id = %(player_id)s
             """,
             rows,
         )
@@ -320,7 +451,7 @@ def update_players_data(conn, df, changes):
             INSERT INTO players
                ( player_id, player_name , clan)
             VALUES
-                (:player_id, :player_name, :clan)
+                ( %(player_id)s , %(player_name)s, %(clan)s)
             """,
             (defaultdict(lambda: None, row) for row in changes["added_rows"]),
         )
