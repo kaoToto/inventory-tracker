@@ -105,11 +105,12 @@ st.set_page_config(
     page_icon=":recycle:",  # This is an emoji shortcode. Could be a URL too.
 )
 
-if st.button("migrate to cloud"):
-    migrate_to_postgres()
 
-
-assert(False) 
+#migration from local sqlite to cloud pgsql
+#needs uncommenting those lines
+#if st.button("migrate to cloud"):
+#    migrate_to_postgres()
+#assert(False) 
 
 # Clan list 
 
