@@ -4,4 +4,4 @@ requests
 numpy
 openpyxl
 psycopg2
-
+libpq-dev
