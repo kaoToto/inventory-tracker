@@ -427,6 +427,8 @@ def batch_update_players(_conn, df,  player_df):
                 """,
                 data_to_update,
             )
+    
+    conn.commit()
 
 def update_players_data(conn, df, changes):
     """Updates the players data in the database after the clan is manually edit in UI."""
