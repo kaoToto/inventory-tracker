@@ -1,6 +1,6 @@
 from collections import defaultdict
 from pathlib import Path
-
+from time import sleep
 import streamlit as st
 import altair as alt
 import pandas as pd
@@ -41,21 +41,26 @@ def check_password():
 
     def password_entered():
         """Checks whether a password entered by the user is correct."""
-        if st.session_state["username"] in st.secrets[
-            "passwords"
-        ] and hmac.compare_digest(
+        if st.session_state["username"] in st.secrets[ "passwords" ] and hmac.compare_digest(
             st.session_state["password"],
             st.secrets.passwords[st.session_state["username"]],
         ):
             st.session_state["password_correct"] = True
+            st.session_state["can_write"] =  st.session_state["username"] in st.secrets[ "authorizations" ] and st.secrets.authorizations[ st.session_state["username"] ]  == "read_write"
+
+            sleep(5)
+
+            st.session_state["authorization"] = st.secrets.authorizations[st.session_state["username"]]
             del st.session_state["password"]  # Don't store the username or password.
             del st.session_state["username"]
+
         else:
             st.session_state["password_correct"] = False
 
     # Return True if the username + password is validated.
     if st.session_state.get("password_correct", False):
         return True
+    
 
     # Show inputs for username + password.
     login_form()
@@ -66,6 +71,9 @@ def check_password():
 
 if not check_password():
     st.stop()
+
+if not st.session_state["can_write"]: 
+    st.warning(f"You have read only access, your changes won't be saved to db")
 
 # Clan list 
 
@@ -566,7 +574,7 @@ with col2:
     st.button(
         ":warning: Save Changes",
         type="primary",
-        disabled=not has_uncommitted_changes,
+        disabled=not has_uncommitted_changes or st.session_state["can_write"] == False,
         # Update data in database
         on_click=update_players_data,
         args=(conn, players_df, st.session_state.player_table),
@@ -602,8 +610,10 @@ with col2:
         new_general_clan = st.selectbox("Clan",options = clan_names.values(), index = None)
         new_general_name = st.selectbox("General",options =players_df['player_name'], index = None)
 
-        if st.button(":warning: Save Changes",
-                     disabled = not new_general_clan  or not new_general_name
+        edited = new_general_clan is not None  and new_general_name is not None
+
+        if st.button(":warning: Save Changes",  
+                     disabled = not edited or st.session_state["can_write"] == False
             , key="generalbutt"):
             new_general_id = players_df[ players_df['player_name'] == new_general_name ]['player_id'].values[0]
             new_general_clan_id = None
