@@ -385,12 +385,8 @@ def batch_update_players(_conn, df,  player_df):
         cursor = conn.cursor()
         cursor.executemany(
                 """
-                 INSERT  INTO players
-                    (player_id , player_name,  clan)
-                VALUES
-                    player_name = %(player_name)s,
-                    clan = %(clan)s
-                    player_id = %(player_id)s
+                INSERT INTO players (player_id, player_name, clan)
+                VALUES (%(player_id)s, %(player_name)s, %(clan)s)
                 ON CONFLICT (player_id) DO NOTHING;
                 """,
                 data_to_update,
@@ -472,6 +468,7 @@ def update_players_data(conn, df, changes):
                ( player_id, player_name , clan)
             VALUES
                 ( %(player_id)s , %(player_name)s, %(clan)s)
+            ON CONFLICT (player_id) DO NOTHING;
             """,
             (defaultdict(lambda: None, row) for row in changes["added_rows"]),
         )
