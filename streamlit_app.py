@@ -132,25 +132,6 @@ def replace_fancy_letters(text, remove_numbers=False):
     return ascii_text.upper()
 
 
-# -----------------------------------------------------------------------------
-# Base 64 decode
-
-def base64_padding(source_str): 
-    """ Base 64 has = or == endings in standard and our strings don't have them, hence we need a conversion"""
-    pad = {0: "", 2: "==", 3: "="}
-
-    mod4 = (len(source_str)) % 4
-    if (mod4 == 1):
-        raise ValueError("Invalid input: its length mod 4 == 1")
-    b64u = source_str + pad[mod4]
-    padded_str = base64.b64decode(b64u)
-    return padded_str
-
-if False:
-    # example to b64decode a link clan part 
-    linksEnd = "eyJ1aWQiOiIxNDA0MDkifQ", 
-    print(json.loads(base64_padding(linkEnd).decode("utf8"))["uid"])
-
 
 
 # -----------------------------------------------------------------------------
@@ -639,38 +620,7 @@ st.info(
     Use the following button to pull last available reset ranks from AOW and edit movements
     """
 )
-def get_clan_string(clan_id):
-    return f'{{"uid":"{clan_id}"}}'
 
-def get_last_day_link(clan_id):
-    clan_string =get_clan_string(clan_id)
-    clan_string_encoded = base64.b64encode(clan_string.encode("utf8")).decode("utf8").rstrip('=')
-    url = f"{link_template}{clan_string_encoded}.NWOTOKEN&battle=pvp"
-    print(f"{clan_id} : {url}")
-    return url
-
-
- 
-
-def pull_all_links(clan_tag):
-    print(f" Pull links for {clan_tag}")
-    target_df=  pd.DataFrame() 
-    for clan_id in clan_ids [clan_tag]: 
-        url = get_last_day_link(clan_id)
-        response = requests.get(url)
-        csv_data = response.content.decode('utf-8')
-        csv_file = StringIO(csv_data)
-        local_df = pd.read_csv(csv_file)
-        local_df = local_df.iloc[:-1]
-        local_df['Team'] = clan_tag
-        local_df['Current Clan'] = clan_id
-        local_df['Current Clan Name'] = clan_names[clan_id] if clan_id in clan_names else ""
-
-
-        local_df['ID'] = local_df['ID'].astype(int)
-        target_df = pd.concat( [target_df,local_df], ignore_index=True)
-        
-    return target_df
     
 def assign_users(df,tag):
     print(df.head())
@@ -701,8 +651,9 @@ def fill_missing_values(row):
     
 
 if st.button("Reload players ranks from NWO"):
+    from utils.aow_links import pull_all_aow_links
     with st.spinner("Pulling NWO report"): 
-        df_nwo= pull_all_links("NWO")
+        df_nwo= pull_all_aow_links("NWO", clan_ids,clan_names)
         st.session_state.players_ranks_df = df_nwo
         new_df_nwo =  df_nwo[~df_nwo['ID'].isin(players_df['player_id'])]
         create_new_users(new_df_nwo)
@@ -711,7 +662,7 @@ if st.button("Reload players ranks from NWO"):
     for key in clan_ids.keys():
         if key != "NWO":
             with st.spinner(f"Pulling {key} report"): 
-                df_team = pull_all_links(key)
+                df_team = pull_all_aow_links(key, clan_ids,clan_names)
                 assign_users(df_team,key)
                 st.session_state.players_ranks_df = pd.concat([st.session_state.players_ranks_df,df_team ])
 
