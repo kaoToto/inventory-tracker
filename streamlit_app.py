@@ -659,7 +659,7 @@ if "players_ranks_df" in st.session_state:
             "origin",
             "current team",
             "dest team", 
-            "rank"]
+            "trophies"]
             )
     
     # we will sort 49 player per team, on a list with no generals
@@ -729,7 +729,7 @@ if "players_ranks_df" in st.session_state:
                 "current team":row["Current Clan Name"],
                 "origin":row["origin"],
                 "dest team" : clan_names[nwo_clan_id] if nwo_clan_id in  clan_names else nwo_clan_id,
-                "rank" : row["Ranking"]
+                "trophies" : row["Trophies"]
             }
             # Add the new row using loc
             st.session_state.movesdf.loc[len(st.session_state.movesdf )] = new_row
@@ -751,7 +751,7 @@ if "players_ranks_df" in st.session_state:
                     "current team":clan_names[row["Current Clan"]] if row["Current Clan"] in  clan_names else "",
                     "origin":row["origin"],
                     "dest team" : clan_names[target_clan_id] if target_clan_id in  clan_names else clan_to_sort,
-                    "rank" : row["Ranking"]
+                    "trophies" : row["Trophies"]
                     }
                 # Add the new row using loc
                 st.session_state.movesdf.loc[len(st.session_state.movesdf )] = new_row
@@ -791,13 +791,13 @@ if "movesdf" in st.session_state.keys() :
             "destination",
             "player_name",
             "origin",
-            "current team","rank"),
+            "current team","tophies"),
         column_order = ("player_id",
             "from",
             "destination",
             "player_name",
             "origin", 
-            "current team","dest team" ,"rank")
+            "current team","dest team" ,"trophies")
         ) 
     if edited_movesdf is not None  and not edited_movesdf.equals(st.session_state.movesdf):
         edited_movesdf['destination']=edited_movesdf.apply(check_dest_team,axis=1)
@@ -821,7 +821,7 @@ if "movesdf" in st.session_state.keys() :
 
     export_df = st.session_state.movesdf[ st.session_state.movesdf['from'] !=  st.session_state.movesdf['destination'] ] 
     export_df = export_df.sort_values(by=['from', 'destination'])   
-    export_df = export_df.rename(columns={'from': 'from_clan_id', 'destination': 'to_clan_id'})
+    export_df = export_df.rename(columns={'from': 'from_clan_id', 'destination': 'to_clan_id', 'origin':'family'})
     # Get the current date in YYYY-MM-DD format
     current_date = datetime.now().strftime("%Y-%m-%d")
     file_name = f"NWO_Rotations_{current_date}"
