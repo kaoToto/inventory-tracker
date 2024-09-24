@@ -135,18 +135,6 @@ def initialize_data(conn):
         )
         """
     )
-    conn.commit()
-
-def add_generals(conn):
-    """ migration : Initializes the generals table with some data. """
-    
-    empty_general_list = ""
-    for k, _ in clan_names.items():
-        empty_general_list = f""" {empty_general_list}
-        ({k},0),"""
-
-
-    cursor = conn.cursor()
     cursor.execute(
         """
         CREATE TABLE IF NOT EXISTS generals (
@@ -162,8 +150,20 @@ def add_generals(conn):
             (0,'','')
         ON CONFLICT (player_id) DO NOTHING;
         """
-
     cursor.execute( query )
+
+    conn.commit()
+
+def add_generals(conn):
+    """ migration : Initializes the generals table with some data. """
+    
+    empty_general_list = ""
+    for k, _ in clan_names.items():
+        empty_general_list = f""" {empty_general_list}
+        ({k},0),"""
+
+
+    cursor = conn.cursor()
     query = f"""
         INSERT INTO generals
             (clan_id , player_id)
@@ -438,8 +438,6 @@ if db_was_just_created:
     st.toast("Database initialized with some sample data.")
 add_generals(conn)
 
-# Load data from database
-players_df = load_players_data(conn)
 
 # -----------------------------------------------------------------------------
 # Draw the actual page, starting with the players table.
@@ -455,6 +453,9 @@ players_df = load_players_data(conn)
 """
 if not check_password():
     st.stop()
+
+# Load data from database
+players_df = load_players_data(conn)
 
 if not st.session_state["can_write"]: 
     st.warning(f"You have read only access, your changes won't be saved to db")
