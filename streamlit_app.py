@@ -15,8 +15,8 @@ from datetime import datetime
 import io
 import psycopg2
 from psycopg2 import sql
+from utils.st_login import check_password
 
-import hmac
 
 
 #database is on https://cloud.tembo.io/
@@ -28,13 +28,7 @@ st.set_page_config(
 )
 
 
-from utils.st_login import check_password
 
-if not check_password():
-    st.stop()
-
-if not st.session_state["can_write"]: 
-    st.warning(f"You have read only access, your changes won't be saved to db")
 
 # Clan list 
 
@@ -436,6 +430,16 @@ def update_players_data(conn, df, changes):
 
     conn.commit()
 
+# Connect to database and create table if needed
+conn, db_was_just_created = connect_db()
+# Initialize data.
+if db_was_just_created:
+    initialize_data(conn)
+    st.toast("Database initialized with some sample data.")
+add_generals(conn)
+
+# Load data from database
+players_df = load_players_data(conn)
 
 # -----------------------------------------------------------------------------
 # Draw the actual page, starting with the players table.
@@ -449,6 +453,11 @@ def update_players_data(conn, df, changes):
 *This page prepares NWO clan movements.*
 
 """
+if not check_password():
+    st.stop()
+
+if not st.session_state["can_write"]: 
+    st.warning(f"You have read only access, your changes won't be saved to db")
 
 with st.expander("How to use?"):
     st.markdown("""
@@ -474,18 +483,9 @@ st.info(
     """
 )
 
-# Connect to database and create table if needed
-conn, db_was_just_created = connect_db()
 
-# Initialize data.
-if db_was_just_created:
-    initialize_data(conn)
-    st.toast("Database initialized with some sample data.")
 
-add_generals(conn)
 
-# Load data from database
-players_df = load_players_data(conn)
 players_df = players_df.sort_values(by='clan', ascending=True)
 
 players_df['player_id'] = players_df['player_id'].astype(int)
