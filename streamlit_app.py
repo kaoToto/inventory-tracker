@@ -54,6 +54,12 @@ clan_names[ 5425] = "SH1"
 clan_names[ 143430] = "SH2"
 clan_names[ 133909] = "SH3"
 #clan_names[142364] = "ARB"
+clan_names[148355] = "TW1"
+#clan_names[4860] = "TW2"
+#clan_names[149734] = "TW3"
+#clan_names[121740] = "TW4"
+#clan_names[119001] = "TW5"
+
 
 # lets populate a reverse table to ease lookups
 clan_ids = {}
