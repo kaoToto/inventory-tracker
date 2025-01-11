@@ -631,8 +631,12 @@ if st.button("Reload players ranks from NWO"):
     for key in clan_ids.keys():
         if key != "NWO":
             with st.spinner(f"Pulling {key} report"): 
+                sleep(1)
                 df_team = pull_all_aow_links(key, clan_ids,clan_names)
-                assign_users(df_team,key)
+                if key == "TW":
+                    create_new_users(df_team)
+                else :
+                    assign_users(df_team,key)
                 st.session_state.players_ranks_df = pd.concat([st.session_state.players_ranks_df,df_team ])
 
     
